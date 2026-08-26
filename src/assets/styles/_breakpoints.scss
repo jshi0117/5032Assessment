@@ -1,0 +1,59 @@
+// ---------------------------------------------------------------------------
+// Breakpoints — deliberately aligned with the BR A.2 grading bands.
+//
+//   BR A.2 band          Bootstrap tier   mixin
+//   < 576px              xs               @include band-xs
+//   576px – 768px        sm               @include band-sm
+//   992px – 1200px       lg               @include band-lg
+//   > 1400px             xxl              @include band-xxl
+//
+// The two bands the rubric does not name (768–992, 1200–1400) still have to
+// look right, so `up()` / `down()` / `between()` are available for them too.
+// ---------------------------------------------------------------------------
+
+@use 'sass:map';
+
+$breakpoints: (
+  xs: 0,
+  sm: 576px,
+  md: 768px,
+  lg: 992px,
+  xl: 1200px,
+  xxl: 1400px
+);
+
+@function bp($name) {
+  @if not map.has-key($breakpoints, $name) {
+    @error "Unknown breakpoint `#{$name}`.";
+  }
+  @return map.get($breakpoints, $name);
+}
+
+/// Applies from $name upwards.
+@mixin up($name) {
+  $min: bp($name);
+  @if $min == 0 {
+    @content;
+  } @else {
+    @media (min-width: $min) { @content; }
+  }
+}
+
+/// Applies below $name (exclusive).
+@mixin down($name) {
+  @media (max-width: bp($name) - 0.02px) { @content; }
+}
+
+/// Applies between $lower (inclusive) and $upper (exclusive).
+@mixin between($lower, $upper) {
+  @media (min-width: bp($lower)) and (max-width: bp($upper) - 0.02px) {
+    @content;
+  }
+}
+
+// --- the four bands the rubric grades on ----------------------------------
+
+@mixin band-xs  { @include down(sm) { @content; } }              // < 576px
+@mixin band-sm  { @include between(sm, md) { @content; } }        // 576 – 768px
+@mixin band-lg  { @include between(lg, xl) { @content; } }        // 992 – 1200px
+@mixin band-xxl { @include up(xxl) { @content; } }                // > 1400px

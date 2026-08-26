@@ -1,8 +1,9 @@
 {
-  "name": "volunteer-events-app",
+  "name": "greenroots-melbourne",
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "description": "GreenRoots Melbourne — community tree-planting and biodiversity web app (FIT5032)",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

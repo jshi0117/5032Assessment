@@ -1,0 +1,118 @@
+@use 'breakpoints' as bp;
+
+// ---------------------------------------------------------------------------
+// Brand tokens.
+// Bootstrap 5.3 exposes its theme through CSS custom properties, so the brand
+// is applied by overriding those rather than by recompiling Bootstrap's Sass.
+// ---------------------------------------------------------------------------
+:root {
+  --gr-green-900: #1b5e20;
+  --gr-green-700: #2e7d32;
+  --gr-green-100: #e8f5e9;
+  --gr-bark:      #6d4c41;
+  --gr-ink:       #212529;
+
+  --bs-primary:        var(--gr-green-700);
+  --bs-primary-rgb:    46, 125, 50;
+  --bs-link-color:     var(--gr-green-900);
+  --bs-link-hover-color: var(--gr-green-700);
+  --bs-body-color:     var(--gr-ink);
+}
+
+// Bootstrap's .btn-primary reads its own set of vars, so brand them directly.
+.btn-primary {
+  --bs-btn-bg: var(--gr-green-700);
+  --bs-btn-border-color: var(--gr-green-700);
+  --bs-btn-hover-bg: var(--gr-green-900);
+  --bs-btn-hover-border-color: var(--gr-green-900);
+  --bs-btn-active-bg: var(--gr-green-900);
+  --bs-btn-active-border-color: var(--gr-green-900);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--gr-green-700);
+  --bs-btn-border-color: var(--gr-green-700);
+  --bs-btn-hover-bg: var(--gr-green-700);
+  --bs-btn-hover-border-color: var(--gr-green-700);
+  --bs-btn-active-bg: var(--gr-green-900);
+  --bs-btn-active-border-color: var(--gr-green-900);
+}
+
+// ---------------------------------------------------------------------------
+// Global
+// ---------------------------------------------------------------------------
+html { scroll-behavior: smooth; }
+
+body {
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+// Visible focus for every interactive element — BR E.3 groundwork.
+:focus-visible {
+  outline: 3px solid var(--gr-green-700);
+  outline-offset: 2px;
+}
+
+// Skip link, revealed on keyboard focus only.
+.skip-link {
+  position: absolute;
+  top: -3rem;
+  left: 1rem;
+  z-index: 1080;
+  padding: 0.5rem 1rem;
+  background: var(--gr-green-900);
+  color: #fff;
+  border-radius: 0 0 0.375rem 0.375rem;
+  transition: top 0.15s ease-in-out;
+
+  &:focus { top: 0; }
+}
+
+// ---------------------------------------------------------------------------
+// Page shell — the width behaviour the rubric's four bands are checked against
+// ---------------------------------------------------------------------------
+.gr-page {
+  flex: 1 0 auto;
+  width: 100%;
+  padding-inline: 1rem;
+  padding-block: 1.5rem;
+  margin-inline: auto;
+
+  @include bp.band-xs {
+    padding-inline: 0.75rem;   // reclaim gutters on the smallest phones
+    padding-block: 1rem;
+  }
+
+  @include bp.up(sm) { padding-inline: 1.5rem; }
+  @include bp.up(lg) { padding-block: 2.5rem; }
+
+  // > 1400px: stop the content stretching the full width of the viewport.
+  @include bp.band-xxl {
+    max-width: 1320px;
+    padding-inline: 2rem;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dev-only breakpoint badge. Renders only under `npm run dev`; it exists so the
+// current band can be read off the screen while resizing during the demo.
+// ---------------------------------------------------------------------------
+.gr-bp-badge {
+  position: fixed;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 1090;
+  padding: 0.25rem 0.625rem;
+  font: 600 0.75rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 999px;
+  pointer-events: none;
+}
