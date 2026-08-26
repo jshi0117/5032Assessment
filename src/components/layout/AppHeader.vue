@@ -93,7 +93,7 @@ watch(() => route.fullPath, close)
     align-items: center;
     gap: 0.75rem;
     width: 100%;
-    max-width: 1320px;
+    max-width: var(--gr-container-max);
     margin-inline: auto;
     padding: 0.625rem 1rem;
 

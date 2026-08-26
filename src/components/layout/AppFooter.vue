@@ -57,7 +57,7 @@ const columns = [
 
 .gr-footer__inner {
   width: 100%;
-  max-width: 1320px;
+  max-width: var(--gr-container-max);
   margin-inline: auto;
   padding: 2rem 1rem 1.5rem;
 

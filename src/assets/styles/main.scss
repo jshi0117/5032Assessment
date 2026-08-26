@@ -17,6 +17,10 @@
   --bs-link-color:     var(--gr-green-900);
   --bs-link-hover-color: var(--gr-green-700);
   --bs-body-color:     var(--gr-ink);
+
+  /* Shared page width. Header, main and footer all read this so their content
+     edges line up; overridden at the xxl band below. */
+  --gr-container-max: 1320px;
 }
 
 // Bootstrap's .btn-primary reads its own set of vars, so brand them directly.
@@ -93,11 +97,18 @@ body {
   @include bp.up(sm) { padding-inline: 1.5rem; }
   @include bp.up(lg) { padding-block: 2.5rem; }
 
-  // > 1400px: stop the content stretching the full width of the viewport.
+  // > 1400px: bounded, but wide enough that a four-column grid is not cramped.
   @include bp.band-xxl {
-    max-width: 1320px;
     padding-inline: 2rem;
   }
+
+  max-width: var(--gr-container-max);
+}
+
+// Beyond 1400px the grid switches to four columns; a wider ceiling keeps each
+// column roomy enough for a card's badges to sit on one line.
+@include bp.band-xxl {
+  :root { --gr-container-max: 1500px; }
 }
 
 // ---------------------------------------------------------------------------
