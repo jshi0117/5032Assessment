@@ -1,11 +1,33 @@
 <script setup>
+import { ref } from 'vue'
+
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import { useBreakpoint } from '@/composables/useBreakpoint'
+import { useEventStore } from '@/stores/eventStore'
 
-// Dev-only readout, so the active BR A.2 band can be seen while resizing.
-const { bandLabel } = useBreakpoint()
+/*
+ * Development aids. Stripped from a production build by the import.meta.env.DEV
+ * guard, which Vite resolves to false at build time.
+ *
+ *  - the band readout makes the active BR A.2 breakpoint visible while resizing
+ *  - the reset drops local registrations and ratings back to the seed data, so
+ *    a demo can be run repeatedly without opening the console
+ */
 const isDev = import.meta.env.DEV
+const { bandLabel } = useBreakpoint()
+
+const store = useEventStore()
+const resetting = ref(false)
+
+async function resetDemoData() {
+  resetting.value = true
+  try {
+    await store.resetLocalChanges()
+  } finally {
+    resetting.value = false
+  }
+}
 </script>
 
 <template>
@@ -19,5 +41,16 @@ const isDev = import.meta.env.DEV
 
   <AppFooter />
 
-  <p v-if="isDev" class="gr-bp-badge" aria-hidden="true">{{ bandLabel }}</p>
+  <div v-if="isDev" class="gr-devbar" aria-hidden="true">
+    <button
+      type="button"
+      class="gr-devbar__button"
+      :disabled="resetting"
+      title="Clear local registrations and ratings, back to the seed data"
+      @click="resetDemoData"
+    >
+      {{ resetting ? 'Resetting…' : 'Reset demo data' }}
+    </button>
+    <span class="gr-devbar__badge">{{ bandLabel }}</span>
+  </div>
 </template>

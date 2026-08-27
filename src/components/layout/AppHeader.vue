@@ -30,7 +30,21 @@ watch(() => route.fullPath, close)
   <header class="gr-header border-bottom bg-white sticky-top">
     <div class="gr-header__inner">
       <RouterLink :to="{ name: 'home' }" class="gr-brand" @click="close">
-        <span class="gr-brand__mark" aria-hidden="true"></span>
+        <!-- Inlined rather than <img src="/favicon.svg"> so it inherits colour,
+             needs no extra request, and still draws with images disabled. -->
+        <svg
+          class="gr-brand__mark"
+          viewBox="0 0 32 32"
+          width="28"
+          height="28"
+          role="img"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <rect width="32" height="32" rx="7" fill="var(--gr-green-700)" />
+          <path d="M16 5l7 11h-4l4 7h-14l4-7H9z" fill="#A5D6A7" />
+          <rect x="14.5" y="21" width="3" height="6" fill="var(--gr-bark)" />
+        </svg>
         <span class="gr-brand__text">
           GreenRoots<span class="gr-brand__place"> Melbourne</span>
         </span>
@@ -142,11 +156,8 @@ watch(() => route.fullPath, close)
   text-decoration: none;
 
   &__mark {
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 0.375rem;
-    background: linear-gradient(140deg, var(--gr-green-700), var(--gr-green-900));
     flex: none;
+    display: block;
   }
 
   // The suburb drops away on the narrowest band so the brand never wraps.

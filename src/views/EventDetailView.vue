@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
@@ -16,21 +16,9 @@ const route = useRoute()
 const store = useEventStore()
 const { loading, error } = storeToRefs(store)
 
-// Standing in for the signed-in user until authentication arrives (BR C.1).
-// Registration is wired up now so that persistence across a reload can be
-// demonstrated; the identity becomes the real session user later.
-const CURRENT_VOLUNTEER_ID = 'vol-001'
-
-const submitting = ref(false)
-const feedback = ref(null)
-
 onMounted(() => store.load())
 
 const event = computed(() => store.eventById(route.params.id))
-
-const isRegistered = computed(() =>
-  Boolean(event.value?.registeredVolunteerIds.includes(CURRENT_VOLUNTEER_ID))
-)
 
 const canRegister = computed(() => {
   const e = event.value
@@ -51,35 +39,6 @@ const unavailableLabel = computed(() => {
   if (e.isFull) return 'Fully booked'
   return ''
 })
-
-async function register() {
-  submitting.value = true
-  feedback.value = null
-  try {
-    await store.register(event.value.id, CURRENT_VOLUNTEER_ID)
-    feedback.value = {
-      variant: 'success',
-      message: 'You are registered. Your spot is saved on this device and will still be here after a refresh.'
-    }
-  } catch (err) {
-    feedback.value = { variant: 'danger', message: err.message }
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function cancel() {
-  submitting.value = true
-  feedback.value = null
-  try {
-    await store.cancelRegistration(event.value.id, CURRENT_VOLUNTEER_ID)
-    feedback.value = { variant: 'secondary', message: 'Your registration has been cancelled.' }
-  } catch (err) {
-    feedback.value = { variant: 'danger', message: err.message }
-  } finally {
-    submitting.value = false
-  }
-}
 </script>
 
 <template>
@@ -171,28 +130,20 @@ async function cancel() {
               ></div>
             </div>
 
-            <div v-if="feedback" class="alert py-2 px-3 small" :class="`alert-${feedback.variant}`" role="status">
-              {{ feedback.message }}
-            </div>
-
-            <button
-              v-if="isRegistered"
-              type="button"
-              class="btn btn-outline-secondary w-100"
-              :disabled="submitting"
-              @click="cancel"
-            >
-              Cancel my spot
-            </button>
-            <button
-              v-else
-              type="button"
+            <RouterLink
+              v-if="canRegister"
               class="btn btn-primary w-100"
-              :disabled="!canRegister || submitting"
-              @click="register"
+              :to="{ name: 'volunteer', query: { event: event.id } }"
             >
-              {{ canRegister ? 'Register for this planting day' : unavailableLabel }}
+              Register for this planting day
+            </RouterLink>
+            <button v-else type="button" class="btn btn-secondary w-100" disabled>
+              {{ unavailableLabel }}
             </button>
+
+            <p v-if="canRegister" class="form-text text-center mt-2 mb-0">
+              We'll ask for your details on the next page.
+            </p>
           </div>
         </div>
 

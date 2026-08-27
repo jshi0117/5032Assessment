@@ -14,9 +14,15 @@
 
   --bs-primary:        var(--gr-green-700);
   --bs-primary-rgb:    46, 125, 50;
-  --bs-link-color:     var(--gr-green-900);
-  --bs-link-hover-color: var(--gr-green-700);
   --bs-body-color:     var(--gr-ink);
+
+  /* Bootstrap 5.3 builds link colour from the -rgb triplet, not from
+     --bs-link-color, so both have to be set or the override does nothing and
+     every link stays Bootstrap blue. */
+  --bs-link-color:           var(--gr-green-900);
+  --bs-link-color-rgb:       27, 94, 32;
+  --bs-link-hover-color:     var(--gr-green-700);
+  --bs-link-hover-color-rgb: 46, 125, 50;
 
   /* Shared page width. Header, main and footer all read this so their content
      edges line up; overridden at the xxl band below. */
@@ -112,18 +118,38 @@ body {
 }
 
 // ---------------------------------------------------------------------------
-// Dev-only breakpoint badge. Renders only under `npm run dev`; it exists so the
-// current band can be read off the screen while resizing during the demo.
+// Dev-only toolbar. Rendered only under `npm run dev`: the band readout lets the
+// active breakpoint be read off the screen while resizing, and the reset button
+// returns the seed data so a demo can be run again without the console.
 // ---------------------------------------------------------------------------
-.gr-bp-badge {
+.gr-devbar {
   position: fixed;
   right: 0.75rem;
   bottom: 0.75rem;
   z-index: 1090;
-  padding: 0.25rem 0.625rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
   font: 600 0.75rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.75);
-  border-radius: 999px;
-  pointer-events: none;
+
+  &__badge {
+    padding: 0.25rem 0.625rem;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.75);
+    border-radius: 999px;
+    pointer-events: none;
+  }
+
+  &__button {
+    padding: 0.25rem 0.625rem;
+    font: inherit;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.75);
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: rgba(0, 0, 0, 0.9); }
+    &:disabled { opacity: 0.6; cursor: default; }
+  }
 }

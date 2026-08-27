@@ -39,7 +39,10 @@ function hydrate(event, overlay) {
   const localRegistrations = overlay.registrations[event.id] ?? []
   const localRatings = overlay.ratings[event.id] ?? []
 
-  const registered = event.registered + localRegistrations.length
+  // A registration can hold several places — a parent booking for the family —
+  // so places are summed rather than counted.
+  const registered =
+    event.registered + localRegistrations.reduce((sum, r) => sum + (r.places ?? 1), 0)
   const ratingCount = event.ratingCount + localRatings.length
   const ratingSum =
     event.ratingSum + localRatings.reduce((sum, r) => sum + r.rating, 0)
@@ -65,7 +68,8 @@ function hydrate(event, overlay) {
     averageRating: ratingCount
       ? Number((ratingSum / ratingCount).toFixed(1))
       : null,
-    registeredVolunteerIds: localRegistrations
+    localRegistrations,
+    registeredVolunteerIds: localRegistrations.map((r) => r.volunteerId)
   }
 }
 
@@ -92,7 +96,9 @@ export async function listSites() {
  * be judged against current data. When this moves to a cloud function the same
  * rules run server-side.
  */
-export async function registerForEvent(eventId, volunteerId) {
+export async function registerForEvent(eventId, volunteerId, details = {}) {
+  const { places = 1, ...contact } = details
+
   const overlay = loadOverlay()
   const seed = seedEvents.find((e) => e.id === eventId)
   if (!seed) throw new Error(`Unknown event: ${eventId}`)
@@ -101,12 +107,29 @@ export async function registerForEvent(eventId, volunteerId) {
   if (event.isPast) throw new Error('That planting day has already taken place.')
   if (event.status === 'cancelled') throw new Error('That planting day has been cancelled.')
   if (event.status === 'draft') throw new Error('That planting day is not open for registration yet.')
-  if (event.isFull) throw new Error('That planting day is fully booked.')
   if (event.registeredVolunteerIds.includes(volunteerId)) {
     throw new Error('You are already registered for that planting day.')
   }
+  if (!Number.isInteger(places)) {
+    throw new Error('Number of places must be a whole number.')
+  }
+  if (places < 1) {
+    throw new Error('Choose at least one place.')
+  }
+  // Checked against live data rather than the form: places left can change
+  // between the page loading and the form being submitted.
+  if (places > event.spotsLeft) {
+    throw new Error(
+      event.spotsLeft === 0
+        ? 'That planting day is fully booked.'
+        : `Only ${event.spotsLeft} ${event.spotsLeft === 1 ? 'place is' : 'places are'} left on that planting day.`
+    )
+  }
 
-  overlay.registrations[eventId] = [...event.registeredVolunteerIds, volunteerId]
+  overlay.registrations[eventId] = [
+    ...event.localRegistrations,
+    { volunteerId, places, ...contact }
+  ]
   if (!saveOverlay(overlay)) {
     throw new Error('Your registration could not be saved on this device.')
   }
@@ -119,7 +142,7 @@ export async function cancelRegistration(eventId, volunteerId) {
   if (!seed) throw new Error(`Unknown event: ${eventId}`)
 
   const remaining = (overlay.registrations[eventId] ?? []).filter(
-    (id) => id !== volunteerId
+    (r) => r.volunteerId !== volunteerId
   )
   if (remaining.length) overlay.registrations[eventId] = remaining
   else delete overlay.registrations[eventId]

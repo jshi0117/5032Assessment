@@ -50,8 +50,10 @@ export const useEventStore = defineStore('events', () => {
     if (index !== -1) events.value[index] = updated
   }
 
-  async function register(eventId, volunteerId) {
-    replace(await eventService.registerForEvent(eventId, volunteerId))
+  async function register(eventId, volunteerId, details = {}) {
+    const updated = await eventService.registerForEvent(eventId, volunteerId, details)
+    replace(updated)
+    return updated
   }
 
   async function cancelRegistration(eventId, volunteerId) {
