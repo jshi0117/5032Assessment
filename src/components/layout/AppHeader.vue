@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppNav from './AppNav.vue'
+import { useBreakpoint } from '@/composables/useBreakpoint'
 
 /**
  * Site header. Owns the mobile menu's open/closed state.
@@ -18,12 +19,17 @@ const links = [
 
 const isOpen = ref(false)
 const route = useRoute()
+const { isMobile } = useBreakpoint()
 
 const toggle = () => { isOpen.value = !isOpen.value }
 const close = () => { isOpen.value = false }
 
 // Navigating on a phone should dismiss the drawer.
 watch(() => route.fullPath, close)
+
+// The drawer is only hidden by CSS above the breakpoint, so its open state
+// would survive a trip to a wider layout and reappear on the way back down.
+watch(isMobile, (mobile) => { if (!mobile) close() })
 </script>
 
 <template>

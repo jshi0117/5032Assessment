@@ -8,7 +8,7 @@ import BaseInput from '@/components/base/BaseInput.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseAlert from '@/components/base/BaseAlert.vue'
-import { formatDateMedium, formatSpots, formatTimeRange } from '@/utils/format'
+import { formatDateMedium, formatSpots, formatTimeRange, formatStatus } from '@/utils/format'
 import {
   required, email as emailFormat, auMobile, minLength, maxLength,
   numberRange, atMost, matches, accepted
@@ -27,6 +27,7 @@ const store = useEventStore()
 const confirmation = ref(null)
 const cancelled = ref(false)
 const cancelling = ref(false)
+const cancelError = ref(null)
 
 onMounted(() => store.load())
 
@@ -73,7 +74,9 @@ const form = useForm({
     places: [
       required('Number of places'),
       numberRange(1, 10, 'Number of places'),
-      atMost(() => selectedEvent.value?.spotsLeft ?? 10, 'Number of places')
+      // Declares the dependency so changing the planting day re-checks the
+      // places field — otherwise the error text keeps quoting the old capacity.
+      atMost(() => selectedEvent.value?.spotsLeft ?? 10, 'Number of places', ['eventId'])
     ],
     // 3 — length
     notes: [maxLength(200, 'Notes')],
@@ -82,13 +85,10 @@ const form = useForm({
   onSubmit: async (values) => {
     // No accounts yet (BR C.1), so a registration is keyed by email address.
     const volunteerId = `guest:${values.emailAddress.trim().toLowerCase()}`
+    // Only the id and the places booked are persisted; see eventService for why
+    // the rest of the contact details are deliberately not stored on the device.
     const updated = await store.register(values.eventId, volunteerId, {
-      places: Number(values.places),
-      name: values.fullName.trim(),
-      email: values.emailAddress.trim().toLowerCase(),
-      phone: String(values.phone).replace(/[\s-]/g, ''),
-      suburb: values.suburb,
-      notes: values.notes.trim()
+      places: Number(values.places)
     })
     confirmation.value = {
       eventId: updated.id,
@@ -110,12 +110,26 @@ const selectedEvent = computed(() =>
   form.values.eventId ? store.eventById(form.values.eventId) : null
 )
 
-// Pre-select the planting day when arriving from an event page.
+/**
+ * Pre-selects the planting day when arriving from an event page.
+ *
+ * The id has to be one of the options actually offered: a link to a cancelled,
+ * full or past event would otherwise select a value the dropdown does not
+ * contain, leaving the field looking chosen but failing only on submit.
+ */
+const unavailableDeepLink = ref(null)
+
 watch(
   () => [route.query.event, store.loaded],
   () => {
-    if (route.query.event && !form.values.eventId && store.eventById(route.query.event)) {
-      form.values.eventId = route.query.event
+    const requested = route.query.event
+    if (!requested || form.values.eventId) return
+
+    if (openEvents.value.some((e) => e.id === requested)) {
+      form.values.eventId = requested
+      unavailableDeepLink.value = null
+    } else if (store.eventById(requested)) {
+      unavailableDeepLink.value = store.eventById(requested)
     }
   },
   { immediate: true }
@@ -135,9 +149,14 @@ const placesHint = computed(() =>
  */
 async function undoRegistration() {
   cancelling.value = true
+  cancelError.value = null
   try {
     await store.cancelRegistration(confirmation.value.eventId, confirmation.value.volunteerId)
     cancelled.value = true
+  } catch (err) {
+    // Storage can refuse the write; saying nothing would show the place as
+    // released while it is still booked after a reload.
+    cancelError.value = err.message ?? 'That registration could not be cancelled.'
   } finally {
     cancelling.value = false
   }
@@ -193,6 +212,10 @@ function startAnother() {
             </p>
           </BaseAlert>
 
+          <BaseAlert v-if="cancelError" variant="danger" title="We couldn't cancel that">
+            {{ cancelError }}
+          </BaseAlert>
+
           <!-- The running total, so the effect of registering is visible -->
           <div v-if="confirmedEvent" class="card mb-3">
             <div class="card-body">
@@ -245,6 +268,16 @@ function startAnother() {
     <div v-else class="row g-4">
       <div class="col-12 col-lg-7">
         <form class="gr-signup-form" novalidate @submit.prevent="form.handleSubmit">
+          <BaseAlert
+            v-if="unavailableDeepLink"
+            variant="warning"
+            title="That planting day isn't open"
+          >
+            {{ unavailableDeepLink.title }} can no longer be joined
+            ({{ formatStatus(unavailableDeepLink.displayStatus).toLowerCase() }}).
+            Choose another planting day below.
+          </BaseAlert>
+
           <BaseAlert v-if="form.submitError.value" variant="danger" title="We couldn't save that">
             {{ form.submitError.value }}
           </BaseAlert>
@@ -346,12 +379,17 @@ function startAnother() {
             </p>
           </div>
 
+          <!--
+            Deliberately not disabled while the form is invalid. A disabled
+            submit gives no reason for being disabled; leaving it active lets
+            handleSubmit mark every field touched, reveal all the errors at once
+            and move focus to the first one.
+          -->
           <BaseButton
             type="submit"
             block
             :loading="form.submitting.value"
             loading-text="Saving your place…"
-            :disabled="!form.isValid.value"
           >
             Register for this planting day
           </BaseButton>

@@ -1,0 +1,4 @@
+# History-mode routing: every path is served by the SPA, which then resolves the
+# route on the client. Without this, opening or refreshing /events/evt-010
+# directly returns 404 because no such file exists on the host.
+/*    /index.html   200

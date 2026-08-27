@@ -17,17 +17,76 @@ const OVERLAY_KEY = 'events-overlay'
 
 const sitesById = Object.fromEntries(seedSites.map((s) => [s.id, s]))
 
-const todayIso = () => new Date().toISOString().slice(0, 10)
+/**
+ * Today in Melbourne, as YYYY-MM-DD.
+ *
+ * `toISOString()` would give the UTC date. Melbourne runs 10–11 hours ahead, so
+ * between local midnight and mid-morning the UTC date is still yesterday, and
+ * a planting day that has already happened would keep showing as upcoming and
+ * accepting registrations. en-CA is used because it formats as YYYY-MM-DD.
+ */
+const MELBOURNE_TODAY = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'Australia/Melbourne',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit'
+})
+
+const todayIso = () => MELBOURNE_TODAY.format(new Date())
+
+/**
+ * A registration used to be stored as a bare volunteer id. It now carries the
+ * places booked and the contact details, so anything left in a browser from the
+ * earlier shape is converted on read.
+ *
+ * Without this the count still adds up — an id falls back to one place — but
+ * `volunteerId` reads as undefined, which silently defeats the duplicate check
+ * and makes the record impossible to cancel.
+ */
+function normaliseRegistration(entry) {
+  if (typeof entry === 'string') return { volunteerId: entry, places: 1 }
+  if (entry && typeof entry === 'object' && entry.volunteerId) {
+    return { ...entry, places: Number(entry.places) || 1 }
+  }
+  return null
+}
 
 function loadOverlay() {
   const stored = read(OVERLAY_KEY, null)
-  return {
-    registrations: stored?.registrations ?? {},
-    ratings: stored?.ratings ?? {}
+
+  const registrations = {}
+  for (const [eventId, entries] of Object.entries(stored?.registrations ?? {})) {
+    const cleaned = (Array.isArray(entries) ? entries : [])
+      .map(normaliseRegistration)
+      .filter(Boolean)
+    if (cleaned.length) registrations[eventId] = cleaned
   }
+
+  const ratings = {}
+  for (const [eventId, entries] of Object.entries(stored?.ratings ?? {})) {
+    const cleaned = (Array.isArray(entries) ? entries : []).filter(
+      (r) => r && r.volunteerId && Number.isFinite(r.rating)
+    )
+    if (cleaned.length) ratings[eventId] = cleaned
+  }
+
+  return { registrations, ratings }
 }
 
-const saveOverlay = (overlay) => write(OVERLAY_KEY, overlay)
+/**
+ * Persists the overlay, or throws.
+ *
+ * `write` returns false when localStorage refuses — private browsing, a full
+ * quota, storage disabled. Swallowing that leaves the screen showing a change
+ * that will be gone on the next reload, which is worse than an error.
+ */
+function saveOverlay(overlay) {
+  if (!write(OVERLAY_KEY, overlay)) {
+    throw new Error(
+      'That change could not be saved on this device. Check whether your browser is blocking site storage, then try again.'
+    )
+  }
+}
 
 /**
  * Joins an event to its site and folds in the local overlay, returning the
@@ -96,8 +155,17 @@ export async function listSites() {
  * be judged against current data. When this moves to a cloud function the same
  * rules run server-side.
  */
+/**
+ * Records a registration.
+ *
+ * Only the volunteer id and the number of places are stored. The name, phone,
+ * suburb and notes the form collects are deliberately not persisted: nothing in
+ * the application reads them back, so keeping them in localStorage would put
+ * personal details on a possibly shared device for no benefit. They belong in
+ * Firestore behind an account once BR C.1 and D.1 land.
+ */
 export async function registerForEvent(eventId, volunteerId, details = {}) {
-  const { places = 1, ...contact } = details
+  const { places = 1 } = details
 
   const overlay = loadOverlay()
   const seed = seedEvents.find((e) => e.id === eventId)
@@ -128,11 +196,9 @@ export async function registerForEvent(eventId, volunteerId, details = {}) {
 
   overlay.registrations[eventId] = [
     ...event.localRegistrations,
-    { volunteerId, places, ...contact }
+    { volunteerId, places }
   ]
-  if (!saveOverlay(overlay)) {
-    throw new Error('Your registration could not be saved on this device.')
-  }
+  saveOverlay(overlay)
   return hydrate(seed, overlay)
 }
 

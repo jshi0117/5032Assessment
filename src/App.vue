@@ -41,10 +41,17 @@ async function resetDemoData() {
 
   <AppFooter />
 
+  <!--
+    Hidden from assistive technology because it is not part of the product, and
+    taken out of the tab order to match: aria-hidden around a focusable control
+    is the "aria-hidden-focus" violation — a keyboard user reaches a button a
+    screen reader cannot announce.
+  -->
   <div v-if="isDev" class="gr-devbar" aria-hidden="true">
     <button
       type="button"
       class="gr-devbar__button"
+      tabindex="-1"
       :disabled="resetting"
       title="Clear local registrations and ratings, back to the seed data"
       @click="resetDemoData"

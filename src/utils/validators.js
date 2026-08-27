@@ -62,6 +62,13 @@ export const hasNumber =
       ? null
       : `${label} must include at least one number.`
 
+/**
+ * Attaches the fields a rule reads besides its own, so the form knows to
+ * re-check this field when one of them changes. Declared explicitly rather than
+ * inferred: a rule's source text does not reveal which field it closes over.
+ */
+const dependsOn = (rule, fields) => Object.assign(rule, { dependsOn: fields })
+
 /** Type 4 — numeric range. */
 export const numberRange =
   (min, max, label = 'This field') =>
@@ -79,22 +86,17 @@ export const numberRange =
  * `getMax` is read at validation time, so it tracks a changing value such as
  * the places left on a planting day.
  */
-export const atMost =
-  (getMax, label = 'This field') =>
-  (value) => {
-    if (isEmpty(value)) return null
-    const max = typeof getMax === 'function' ? getMax() : getMax
-    return Number(value) <= max
-      ? null
-      : `Only ${max} ${max === 1 ? 'place is' : 'places are'} left, so ${label.toLowerCase()} cannot be more than ${max}.`
-  }
-
-/**
- * Attaches the fields a rule reads besides its own, so the form knows to
- * re-check this field when one of them changes. Declared explicitly rather than
- * inferred: a rule's source text does not reveal which field it closes over.
- */
-const dependsOn = (rule, fields) => Object.assign(rule, { dependsOn: fields })
+export const atMost = (getMax, label = 'This field', watches = []) =>
+  dependsOn(
+    (value) => {
+      if (isEmpty(value)) return null
+      const max = typeof getMax === 'function' ? getMax() : getMax
+      return Number(value) <= max
+        ? null
+        : `Only ${max} ${max === 1 ? 'place is' : 'places are'} left, so ${label.toLowerCase()} cannot be more than ${max}.`
+    },
+    watches
+  )
 
 /** Type 5 — cross-field. */
 export const matches = (otherField, label = 'This field', otherLabel = 'the other field') =>

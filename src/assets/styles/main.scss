@@ -30,6 +30,9 @@
 }
 
 // Bootstrap's .btn-primary reads its own set of vars, so brand them directly.
+// The disabled pair matters as much as the rest: a form's submit button starts
+// disabled, so leaving those unset shows the default blue until the form is
+// valid.
 .btn-primary {
   --bs-btn-bg: var(--gr-green-700);
   --bs-btn-border-color: var(--gr-green-700);
@@ -37,6 +40,8 @@
   --bs-btn-hover-border-color: var(--gr-green-900);
   --bs-btn-active-bg: var(--gr-green-900);
   --bs-btn-active-border-color: var(--gr-green-900);
+  --bs-btn-disabled-bg: var(--gr-green-700);
+  --bs-btn-disabled-border-color: var(--gr-green-700);
 }
 
 .btn-outline-primary {
@@ -46,6 +51,47 @@
   --bs-btn-hover-border-color: var(--gr-green-700);
   --bs-btn-active-bg: var(--gr-green-900);
   --bs-btn-active-border-color: var(--gr-green-900);
+  --bs-btn-disabled-color: var(--gr-green-700);
+  --bs-btn-disabled-border-color: var(--gr-green-700);
+}
+
+// Progress bars read their fill from the track, not the bar.
+.progress {
+  --bs-progress-bar-bg: var(--gr-green-700);
+}
+
+// Bootstrap compiles the checked and focus states of form controls to literal
+// colours rather than custom properties, so these cannot be re-tokenised and
+// have to be restated as rules.
+.form-check-input:checked {
+  background-color: var(--gr-green-700);
+  border-color: var(--gr-green-700);
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: var(--gr-green-700);
+  box-shadow: 0 0 0 0.25rem rgba(46, 125, 50, 0.25);
+}
+
+:root {
+  --bs-focus-ring-color: rgba(46, 125, 50, 0.25);
+}
+
+// Keyboard focus rings.
+//
+// Bootstrap draws these as a box-shadow and sets `outline: 0` on the same
+// selectors, which beats a bare `:focus-visible` rule on specificity. So the
+// ring has to be re-coloured where Bootstrap draws it, not replaced with an
+// outline. Missing these leaves every button and nav link with a blue ring that
+// only appears under keyboard focus — invisible to a mouse-only check.
+.btn {
+  --bs-btn-focus-box-shadow: 0 0 0 0.25rem rgba(46, 125, 50, 0.5);
+}
+
+.nav-link:focus-visible {
+  box-shadow: 0 0 0 0.25rem rgba(46, 125, 50, 0.25);
 }
 
 // ---------------------------------------------------------------------------
