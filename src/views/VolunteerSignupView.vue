@@ -8,7 +8,9 @@ import BaseInput from '@/components/base/BaseInput.vue'
 import BaseSelect from '@/components/base/BaseSelect.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseAlert from '@/components/base/BaseAlert.vue'
-import { formatDateMedium, formatSpots, formatTimeRange, formatStatus } from '@/utils/format'
+import {
+  formatDateMedium, formatSpots, formatTimeRange, formatStatus, volunteerKeyFromEmail
+} from '@/utils/format'
 import {
   required, email as emailFormat, auMobile, minLength, maxLength,
   numberRange, atMost, matches, accepted
@@ -83,8 +85,9 @@ const form = useForm({
     agree: [accepted('Please agree to the volunteer code of conduct before continuing.')]
   },
   onSubmit: async (values) => {
-    // No accounts yet (BR C.1), so a registration is keyed by email address.
-    const volunteerId = `guest:${values.emailAddress.trim().toLowerCase()}`
+    // No accounts yet (BR C.1), so a registration is keyed by the person's email
+    // address — but as a digest, so no readable address is written to the device.
+    const volunteerId = volunteerKeyFromEmail(values.emailAddress)
     // Only the id and the places booked are persisted; see eventService for why
     // the rest of the contact details are deliberately not stored on the device.
     const updated = await store.register(values.eventId, volunteerId, {

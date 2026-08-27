@@ -1,6 +1,7 @@
 import seedEvents from '@/data/events.json'
 import seedSites from '@/data/sites.json'
 import { read, write } from './storage'
+import { volunteerKeyFromEmail } from '@/utils/format'
 
 /**
  * The only place event data enters or leaves the application.
@@ -44,11 +45,41 @@ const todayIso = () => MELBOURNE_TODAY.format(new Date())
  * and makes the record impossible to cancel.
  */
 function normaliseRegistration(entry) {
-  if (typeof entry === 'string') return { volunteerId: entry, places: 1 }
+  if (typeof entry === 'string') return { volunteerId: migrateVolunteerId(entry), places: 1 }
   if (entry && typeof entry === 'object' && entry.volunteerId) {
-    return { ...entry, places: Number(entry.places) || 1 }
+    // Rebuilt field by field rather than spread. An earlier version stored the
+    // volunteer's name, email, phone, suburb and notes alongside the booking;
+    // spreading would carry those personal details forward indefinitely on a
+    // possibly shared device. Only what the application actually reads survives.
+    return {
+      volunteerId: migrateVolunteerId(entry.volunteerId),
+      places: Number(entry.places) || 1
+    }
   }
   return null
+}
+
+/**
+ * Converts a guest key that still holds a readable email address into the
+ * digest form. Without this an existing registration would no longer match the
+ * key derived at sign-up, so the same person could book a second time.
+ */
+function migrateVolunteerId(volunteerId) {
+  const id = String(volunteerId)
+  if (id.startsWith('guest:') && id.includes('@')) {
+    return volunteerKeyFromEmail(id.slice('guest:'.length))
+  }
+  return id
+}
+
+/** Keeps the first booking per volunteer, since one per event is the rule. */
+function dedupeByVolunteer(entries) {
+  const seen = new Set()
+  return entries.filter((entry) => {
+    if (seen.has(entry.volunteerId)) return false
+    seen.add(entry.volunteerId)
+    return true
+  })
 }
 
 function loadOverlay() {
@@ -56,21 +87,36 @@ function loadOverlay() {
 
   const registrations = {}
   for (const [eventId, entries] of Object.entries(stored?.registrations ?? {})) {
-    const cleaned = (Array.isArray(entries) ? entries : [])
-      .map(normaliseRegistration)
-      .filter(Boolean)
+    const cleaned = dedupeByVolunteer(
+      (Array.isArray(entries) ? entries : []).map(normaliseRegistration).filter(Boolean)
+    )
     if (cleaned.length) registrations[eventId] = cleaned
   }
 
   const ratings = {}
   for (const [eventId, entries] of Object.entries(stored?.ratings ?? {})) {
-    const cleaned = (Array.isArray(entries) ? entries : []).filter(
-      (r) => r && r.volunteerId && Number.isFinite(r.rating)
+    const cleaned = dedupeByVolunteer(
+      (Array.isArray(entries) ? entries : [])
+        .filter((r) => r && r.volunteerId && Number.isFinite(r.rating))
+        .map((r) => ({ volunteerId: migrateVolunteerId(r.volunteerId), rating: Number(r.rating) }))
     )
     if (cleaned.length) ratings[eventId] = cleaned
   }
 
-  return { registrations, ratings }
+  const overlay = { registrations, ratings }
+
+  // Filtering in memory is not enough: the discarded personal details and the
+  // duplicate bookings would stay on the device until something happened to
+  // overwrite them. If cleaning changed anything, the tidied version is written
+  // straight back so the stale data is actually gone.
+  //
+  // A failed write is ignored on purpose — being unable to tidy up must not
+  // stop the page reading its data.
+  if (stored && JSON.stringify(stored) !== JSON.stringify(overlay)) {
+    write(OVERLAY_KEY, overlay)
+  }
+
+  return overlay
 }
 
 /**

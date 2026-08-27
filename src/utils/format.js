@@ -82,5 +82,24 @@ const STATUS_VARIANTS = {
 
 export const statusVariant = (status) => STATUS_VARIANTS[status] ?? 'text-bg-light'
 
+/**
+ * Derives a stable, opaque key from an email address.
+ *
+ * Registrations are keyed by whoever made them so a repeat booking can be
+ * spotted, but the key is stored on the device and there is no reason for it to
+ * be a readable email address — anyone opening the browser's storage on a
+ * shared machine would see who had signed up. A digest keeps the comparison
+ * working while leaving nothing legible behind. It is not a security measure:
+ * it removes casual disclosure, not a determined lookup.
+ */
+export function volunteerKeyFromEmail(email) {
+  const normalised = String(email).trim().toLowerCase()
+  let hash = 5381
+  for (let i = 0; i < normalised.length; i++) {
+    hash = ((hash << 5) + hash + normalised.charCodeAt(i)) | 0
+  }
+  return `guest:${(hash >>> 0).toString(36)}`
+}
+
 export const formatActivity = (activityType) =>
   activityType ? activityType.charAt(0).toUpperCase() + activityType.slice(1) : ''
