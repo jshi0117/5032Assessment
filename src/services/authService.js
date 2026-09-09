@@ -1,9 +1,12 @@
 import {
+  EmailAuthProvider,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  reauthenticateWithCredential,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
   updateProfile
 } from 'firebase/auth'
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
@@ -47,6 +50,8 @@ const MESSAGES = {
   'auth/wrong-password': 'Email address or password is incorrect.',
   'auth/user-not-found': 'Email address or password is incorrect.',
   'auth/user-disabled': 'That account has been disabled. Contact a coordinator.',
+  'auth/requires-recent-login':
+    'For your security, sign in again before making that change.',
   'auth/too-many-requests':
     'Too many attempts from this device. Wait a few minutes and try again.',
   'auth/network-request-failed':
@@ -58,8 +63,17 @@ const MESSAGES = {
   'permission-denied': 'You do not have permission to do that.'
 }
 
-export function describeAuthError(err) {
-  return MESSAGES[err?.code] ?? 'Something went wrong. Please try again.'
+/**
+ * `overrides` re-words a code for a screen where the shared wording would be
+ * wrong. `auth/wrong-password` means "email or password is incorrect" on the
+ * sign-in form, but on the change-password form the email is not in question
+ * and only the current password can be at fault.
+ */
+export function describeAuthError(err, overrides = {}) {
+  const code = err?.code
+  return (
+    overrides[code] ?? MESSAGES[code] ?? 'Something went wrong. Please try again.'
+  )
 }
 
 /** Only the fields the app reads — never the whole Firebase user object. */
@@ -164,6 +178,26 @@ export async function requestPasswordReset(email) {
     if (err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-email') return
     throw err
   }
+}
+
+/**
+ * Changes the signed-in account's password (BR C.1 — account management).
+ *
+ * The current password is re-checked first. Firebase requires a recent sign-in
+ * before a password change, and that requirement is worth having on its own:
+ * without it, anyone who reached an unlocked screen could lock the owner out of
+ * their own account in two keystrokes.
+ *
+ * `updatePassword` runs only after the re-check succeeds, so a wrong current
+ * password fails before anything is written.
+ */
+export async function changeOwnPassword(currentPassword, newPassword) {
+  const user = auth.currentUser
+  if (!user?.email) throw new Error('You need to be signed in to change your password.')
+
+  const credential = EmailAuthProvider.credential(user.email, currentPassword)
+  await reauthenticateWithCredential(user, credential)
+  await updatePassword(user, newPassword)
 }
 
 /** Profile edits the account owner is allowed to make. Never touches `role`. */

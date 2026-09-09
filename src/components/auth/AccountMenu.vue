@@ -120,6 +120,13 @@ async function signOut() {
       <div class="border-top pt-3 mt-2">
         <p class="mb-1 fw-semibold">{{ auth.displayName }}</p>
         <p v-if="roleLabel" class="small text-body-secondary mb-2">{{ roleLabel }}</p>
+        <RouterLink
+          class="btn btn-outline-secondary btn-sm w-100 mb-2"
+          :to="{ name: 'account' }"
+          @click="emit('navigate')"
+        >
+          Your account
+        </RouterLink>
         <button
           type="button"
           class="btn btn-outline-secondary btn-sm w-100"
@@ -159,6 +166,14 @@ async function signOut() {
           <span v-if="roleLabel" class="badge text-bg-light mt-2">{{ roleLabel }}</span>
         </p>
         <hr class="my-2" />
+        <RouterLink
+          class="btn btn-sm btn-outline-secondary w-100 mb-2"
+          role="menuitem"
+          :to="{ name: 'account' }"
+          @click="close"
+        >
+          Your account
+        </RouterLink>
         <button
           type="button"
           class="btn btn-sm btn-outline-secondary w-100"

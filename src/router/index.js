@@ -39,6 +39,12 @@ const routes = [
     meta: { title: 'Volunteer sign-up' }
   },
   {
+    path: '/account',
+    name: 'account',
+    component: () => import('@/views/auth/AccountView.vue'),
+    meta: { title: 'Your account', requiresAuth: true }
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/views/auth/LoginView.vue'),
@@ -80,8 +86,9 @@ const router = createRouter({
  * tell a signed-in user from a visitor; deciding then would sign people out of
  * their own bookmarks on every refresh.
  *
- * Only the guest-only rule lives here for now. The role checks BR C.2 adds hang
- * off `meta.roles` in this same hook.
+ * Two rules for now: pages that need an account, and pages that only make
+ * sense signed out. The role checks BR C.2 adds hang off `meta.roles` in this
+ * same hook.
  */
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
@@ -94,6 +101,12 @@ router.beforeEach(async (to) => {
     return typeof target === 'string' && target.startsWith('/') && !target.startsWith('//')
       ? target
       : { name: 'home' }
+  }
+
+  // `redirect` carries the intended page, so signing in lands the visitor where
+  // they were going rather than dropping them on the home page.
+  if (to.meta?.requiresAuth && !auth.isAuthenticated) {
+    return { name: 'login', query: { redirect: to.fullPath } }
   }
 
   return true

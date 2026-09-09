@@ -108,6 +108,16 @@ export const matches = (otherField, label = 'This field', otherLabel = 'the othe
     [otherField]
   )
 
+/** Type 5 — cross-field inequality, e.g. a new password unlike the old one. */
+export const differsFrom = (otherField, label = 'This field', otherLabel = 'the other field') =>
+  dependsOn(
+    (value, allValues = {}) =>
+      isEmpty(value) || value !== allValues[otherField]
+        ? null
+        : `${label} must be different from ${otherLabel}.`,
+    [otherField]
+  )
+
 /** Type 5 — cross-field ordering, for date ranges. */
 export const notBefore = (otherField, label = 'End date', otherLabel = 'start date') =>
   dependsOn(

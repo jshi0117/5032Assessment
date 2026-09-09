@@ -117,6 +117,13 @@ export const useAuthStore = defineStore('auth', () => {
 
   const requestPasswordReset = (email) => authService.requestPasswordReset(email)
 
+  /**
+   * Changes the password. Sign-in state is untouched — Firebase keeps the
+   * session alive after a password change, so there is nothing to update here.
+   */
+  const changePassword = (currentPassword, newPassword) =>
+    authService.changeOwnPassword(currentPassword, newPassword)
+
   async function updateProfileDetails(details) {
     if (!account.value) throw new Error('You need to be signed in to do that.')
     await authService.updateOwnProfile(account.value.uid, details)
@@ -128,6 +135,6 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated, role, isAdmin, isCoordinator, displayName, initials,
     ROLES,
     hasRole, init, whenReady,
-    register, login, logout, requestPasswordReset, updateProfileDetails
+    register, login, logout, requestPasswordReset, changePassword, updateProfileDetails
   }
 })
