@@ -37,3 +37,7 @@ __screenshots__/
 
 # Vite
 *.timestamp-*-*.mjs
+
+# Local environment (Firebase keys)
+.env.local
+.env.*.local

@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppNav from './AppNav.vue'
+import AccountMenu from '@/components/auth/AccountMenu.vue'
 import { useBreakpoint } from '@/composables/useBreakpoint'
 
 /**
@@ -68,6 +69,11 @@ watch(isMobile, (mobile) => { if (!mobile) close() })
         Join a planting day
       </RouterLink>
 
+      <!-- Sign in / account, md and up. Below that it lives in the drawer. -->
+      <div class="gr-header__account">
+        <AccountMenu />
+      </div>
+
       <!-- Hamburger, below md -->
       <button
         type="button"
@@ -98,6 +104,7 @@ watch(isMobile, (mobile) => { if (!mobile) close() })
       >
         Join a planting day
       </RouterLink>
+      <AccountMenu stacked class="mt-3" @navigate="close" />
     </nav>
   </header>
 </template>
@@ -135,6 +142,13 @@ watch(isMobile, (mobile) => { if (!mobile) close() })
 
     // Only enough room for the call to action once the layout is roomy.
     @include bp.up(lg) { display: inline-flex; }
+  }
+
+  // Sits after the desktop nav; the hamburger takes over below md.
+  &__account {
+    display: none;
+
+    @include bp.up(md) { display: block; }
   }
 
   &__toggle {

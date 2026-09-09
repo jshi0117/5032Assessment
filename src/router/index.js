@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import HomeView from '@/views/HomeView.vue'
+import { useAuthStore } from '@/stores/authStore'
 
 /**
  * Route table.
@@ -38,6 +39,24 @@ const routes = [
     meta: { title: 'Volunteer sign-up' }
   },
   {
+    path: '/login',
+    name: 'login',
+    component: () => import('@/views/auth/LoginView.vue'),
+    meta: { title: 'Sign in', guestOnly: true }
+  },
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/views/auth/RegisterView.vue'),
+    meta: { title: 'Create an account', guestOnly: true }
+  },
+  {
+    path: '/forgot-password',
+    name: 'forgot-password',
+    component: () => import('@/views/auth/ForgotPasswordView.vue'),
+    meta: { title: 'Reset your password', guestOnly: true }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue'),
@@ -51,6 +70,33 @@ const router = createRouter({
   scrollBehavior(to, from, savedPosition) {
     return savedPosition ?? { top: 0 }
   }
+})
+
+/**
+ * Sign-in state gate.
+ *
+ * Every guarded navigation waits on `whenReady()` first. Firebase restores a
+ * session asynchronously, so immediately after a reload the client cannot yet
+ * tell a signed-in user from a visitor; deciding then would sign people out of
+ * their own bookmarks on every refresh.
+ *
+ * Only the guest-only rule lives here for now. The role checks BR C.2 adds hang
+ * off `meta.roles` in this same hook.
+ */
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+  await auth.whenReady()
+
+  // Someone already signed in has no use for the sign-in or registration pages;
+  // send them on rather than showing a form that cannot apply to them.
+  if (to.meta?.guestOnly && auth.isAuthenticated) {
+    const target = to.query.redirect
+    return typeof target === 'string' && target.startsWith('/') && !target.startsWith('//')
+      ? target
+      : { name: 'home' }
+  }
+
+  return true
 })
 
 /**

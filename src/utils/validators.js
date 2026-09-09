@@ -147,3 +147,24 @@ export function passwordScore(value) {
 }
 
 export const PASSWORD_LABELS = ['Very weak', 'Weak', 'Fair', 'Strong', 'Very strong']
+
+/**
+ * Type 3 — password composition, as one rule (BR C.1 / C.4).
+ *
+ * Firebase enforces a six-character minimum and nothing else, so the useful
+ * strength requirement is the client's. One rule rather than three chained ones
+ * because a password that fails on several counts should say what a good
+ * password looks like, not correct one shortcoming at a time.
+ */
+export const strongPassword =
+  (label = 'Password') =>
+  (value) => {
+    if (isEmpty(value)) return null
+    const password = String(value)
+    if (password.length < 8) return `${label} must be at least 8 characters.`
+    if (password.length > 128) return `${label} must be 128 characters or fewer.`
+    if (!/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      return `${label} must include at least one letter and one number.`
+    }
+    return null
+  }
