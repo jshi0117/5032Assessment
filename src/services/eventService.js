@@ -93,17 +93,11 @@ function loadOverlay() {
     if (cleaned.length) registrations[eventId] = cleaned
   }
 
-  const ratings = {}
-  for (const [eventId, entries] of Object.entries(stored?.ratings ?? {})) {
-    const cleaned = dedupeByVolunteer(
-      (Array.isArray(entries) ? entries : [])
-        .filter((r) => r && r.volunteerId && Number.isFinite(r.rating))
-        .map((r) => ({ volunteerId: migrateVolunteerId(r.volunteerId), rating: Number(r.rating) }))
-    )
-    if (cleaned.length) ratings[eventId] = cleaned
-  }
-
-  const overlay = { registrations, ratings }
+  // Ratings used to live here too. They are Firestore's now (BR C.3), so any
+  // left in a browser are dropped rather than migrated: they were anonymous
+  // per-device scores with no account behind them, and there is no honest way
+  // to attribute them to a user now that a rating belongs to one.
+  const overlay = { registrations }
 
   // Filtering in memory is not enough: the discarded personal details and the
   // duplicate bookings would stay on the device until something happened to
@@ -139,18 +133,21 @@ function saveOverlay(overlay) {
  * shape the UI actually renders. Derived values are computed here rather than
  * stored, so `capacity`/`registered` can never disagree with `spotsLeft`.
  */
-function hydrate(event, overlay) {
+function hydrate(event, overlay, ratingStats = {}) {
   const site = sitesById[event.siteId] ?? null
   const localRegistrations = overlay.registrations[event.id] ?? []
-  const localRatings = overlay.ratings[event.id] ?? []
+  const stats = ratingStats[event.id] ?? null
 
   // A registration can hold several places — a parent booking for the family —
   // so places are summed rather than counted.
   const registered =
     event.registered + localRegistrations.reduce((sum, r) => sum + (r.places ?? 1), 0)
-  const ratingCount = event.ratingCount + localRatings.length
-  const ratingSum =
-    event.ratingSum + localRatings.reduce((sum, r) => sum + r.rating, 0)
+  // The seed figures are the history this project starts from; Firestore holds
+  // what has been rated since. Added rather than replaced, so a planting day
+  // that already had a rating does not appear to lose it the moment one person
+  // rates it through the application.
+  const ratingCount = event.ratingCount + (stats?.count ?? 0)
+  const ratingSum = event.ratingSum + (stats?.sum ?? 0)
 
   const isPast = event.date < todayIso()
   const isFull = registered >= event.capacity
@@ -173,20 +170,23 @@ function hydrate(event, overlay) {
     averageRating: ratingCount
       ? Number((ratingSum / ratingCount).toFixed(1))
       : null,
+    /** Scores 1-5 recorded through the application, for the distribution bars. */
+    ratingBuckets: stats?.buckets ?? [0, 0, 0, 0, 0],
+    ratedHere: stats?.count ?? 0,
     localRegistrations,
     registeredVolunteerIds: localRegistrations.map((r) => r.volunteerId)
   }
 }
 
-export async function listEvents() {
+export async function listEvents(ratingStats = {}) {
   const overlay = loadOverlay()
-  return seedEvents.map((event) => hydrate(event, overlay))
+  return seedEvents.map((event) => hydrate(event, overlay, ratingStats))
 }
 
-export async function getEvent(id) {
+export async function getEvent(id, ratingStats = {}) {
   const overlay = loadOverlay()
   const event = seedEvents.find((e) => e.id === id)
-  return event ? hydrate(event, overlay) : null
+  return event ? hydrate(event, overlay, ratingStats) : null
 }
 
 export async function listSites() {
@@ -210,14 +210,14 @@ export async function listSites() {
  * personal details on a possibly shared device for no benefit. They belong in
  * Firestore behind an account once BR C.1 and D.1 land.
  */
-export async function registerForEvent(eventId, volunteerId, details = {}) {
+export async function registerForEvent(eventId, volunteerId, details = {}, ratingStats = {}) {
   const { places = 1 } = details
 
   const overlay = loadOverlay()
   const seed = seedEvents.find((e) => e.id === eventId)
   if (!seed) throw new Error(`Unknown event: ${eventId}`)
 
-  const event = hydrate(seed, overlay)
+  const event = hydrate(seed, overlay, ratingStats)
   if (event.isPast) throw new Error('That planting day has already taken place.')
   if (event.status === 'cancelled') throw new Error('That planting day has been cancelled.')
   if (event.status === 'draft') throw new Error('That planting day is not open for registration yet.')
@@ -245,10 +245,10 @@ export async function registerForEvent(eventId, volunteerId, details = {}) {
     { volunteerId, places }
   ]
   saveOverlay(overlay)
-  return hydrate(seed, overlay)
+  return hydrate(seed, overlay, ratingStats)
 }
 
-export async function cancelRegistration(eventId, volunteerId) {
+export async function cancelRegistration(eventId, volunteerId, ratingStats = {}) {
   const overlay = loadOverlay()
   const seed = seedEvents.find((e) => e.id === eventId)
   if (!seed) throw new Error(`Unknown event: ${eventId}`)
@@ -260,32 +260,16 @@ export async function cancelRegistration(eventId, volunteerId) {
   else delete overlay.registrations[eventId]
 
   saveOverlay(overlay)
-  return hydrate(seed, overlay)
+  return hydrate(seed, overlay, ratingStats)
 }
 
 /**
- * Stores one rating. Kept as sum + count rather than an average so a new score
- * can be folded in without losing the earlier ones (BR C.3).
+ * Drops the registrations held on this device and returns the seed data.
+ *
+ * Ratings are not touched: they live in Firestore against an account, so they
+ * are not this device's to clear.
  */
-export async function rateEvent(eventId, volunteerId, rating) {
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
-    throw new Error('A rating must be a whole number from 1 to 5.')
-  }
-  const overlay = loadOverlay()
-  const seed = seedEvents.find((e) => e.id === eventId)
-  if (!seed) throw new Error(`Unknown event: ${eventId}`)
-
-  const existing = overlay.ratings[eventId] ?? []
-  overlay.ratings[eventId] = [
-    ...existing.filter((r) => r.volunteerId !== volunteerId),
-    { volunteerId, rating }
-  ]
-  saveOverlay(overlay)
-  return hydrate(seed, overlay)
-}
-
-/** Drops local changes and returns the seed data untouched. */
-export async function resetLocalChanges() {
-  saveOverlay({ registrations: {}, ratings: {} })
-  return listEvents()
+export async function resetLocalChanges(ratingStats = {}) {
+  saveOverlay({ registrations: {} })
+  return listEvents(ratingStats)
 }

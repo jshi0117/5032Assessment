@@ -53,7 +53,7 @@ async function resetDemoData() {
       class="gr-devbar__button"
       tabindex="-1"
       :disabled="resetting"
-      title="Clear local registrations and ratings, back to the seed data"
+      title="Clear the registrations held on this device, back to the seed data. Ratings live in Firestore and are not affected."
       @click="resetDemoData"
     >
       {{ resetting ? 'Resetting…' : 'Reset demo data' }}

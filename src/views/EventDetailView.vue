@@ -4,9 +4,10 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
 import { useEventStore } from '@/stores/eventStore'
+import RatingWidget from '@/components/ratings/RatingWidget.vue'
 import {
-  formatDateLong, formatTimeRange, formatSpots, formatRating,
-  starsFor, formatStatus, statusVariant, formatActivity
+  formatDateLong, formatTimeRange, formatSpots,
+  formatStatus, statusVariant, formatActivity
 } from '@/utils/format'
 
 /**
@@ -161,21 +162,7 @@ const unavailableLabel = computed(() => {
           </div>
         </div>
 
-        <div v-if="event.ratingCount" class="card">
-          <div class="card-body">
-            <h2 class="h6 mb-2">Volunteer rating</h2>
-            <p class="mb-0">
-              <span class="h5" aria-hidden="true">
-                {{ '★'.repeat(starsFor(event.averageRating)).padEnd(5, '☆') }}
-              </span>
-              <span class="ms-2">{{ formatRating(event.averageRating) }} / 5</span>
-              <span class="text-body-secondary small d-block mt-1">
-                from {{ event.ratingCount }}
-                {{ event.ratingCount === 1 ? 'volunteer' : 'volunteers' }}
-              </span>
-            </p>
-          </div>
-        </div>
+        <RatingWidget :event="event" />
       </div>
     </div>
   </section>
