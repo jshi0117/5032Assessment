@@ -97,6 +97,12 @@ function toProfile(uid, data) {
     // An unrecognised or missing role is treated as the least privileged one.
     // Failing closed matters here: a corrupt document must not hand out access.
     role: ROLES.includes(data?.role) ? data.role : DEFAULT_ROLE,
+    /**
+     * Which volunteer in the seed data this account is, when an administrator
+     * has linked them. It is what tells /manage which planting days a
+     * coordinator runs; an unlinked coordinator is authorised but owns nothing.
+     */
+    volunteerId: data?.volunteerId ?? null,
     createdAt: data?.createdAt ?? null
   }
 }

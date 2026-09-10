@@ -39,6 +39,32 @@ const routes = [
     meta: { title: 'Volunteer sign-up' }
   },
   {
+    path: '/manage',
+    name: 'manage',
+    component: () => import('@/views/manage/ManageEventsView.vue'),
+    // Both roles reach the page; what they see differs. The view narrows an
+    // administrator to everything and a coordinator to their own planting days.
+    meta: { title: 'Manage planting days', requiresAuth: true, roles: ['coordinator', 'admin'] }
+  },
+  {
+    path: '/admin',
+    name: 'admin',
+    component: () => import('@/views/admin/AdminDashboardView.vue'),
+    meta: { title: 'Administrator overview', requiresAuth: true, roles: ['admin'] }
+  },
+  {
+    path: '/admin/users',
+    name: 'admin-users',
+    component: () => import('@/views/admin/AdminUsersView.vue'),
+    meta: { title: 'Accounts', requiresAuth: true, roles: ['admin'] }
+  },
+  {
+    path: '/forbidden',
+    name: 'forbidden',
+    component: () => import('@/views/ForbiddenView.vue'),
+    meta: { title: 'Access denied' }
+  },
+  {
     path: '/account',
     name: 'account',
     component: () => import('@/views/auth/AccountView.vue'),
@@ -86,9 +112,13 @@ const router = createRouter({
  * tell a signed-in user from a visitor; deciding then would sign people out of
  * their own bookmarks on every refresh.
  *
- * Two rules for now: pages that need an account, and pages that only make
- * sense signed out. The role checks BR C.2 adds hang off `meta.roles` in this
- * same hook.
+ * Three rules, in order: pages that need an account, pages that need a
+ * particular role, and pages that only make sense signed out.
+ *
+ * This guard is a convenience, not the security boundary. It governs one
+ * browser tab and nothing else — anyone can call the same Firestore operations
+ * from a console. What actually refuses an unauthorised write is the security
+ * rules; this exists so a legitimate user is not shown a page they cannot use.
  */
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
@@ -107,6 +137,16 @@ router.beforeEach(async (to) => {
   // they were going rather than dropping them on the home page.
   if (to.meta?.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
+  }
+
+  // Signed in, but not as somebody this page is for. Answered with an
+  // explanation rather than a bounce to the home page, which would look like
+  // the link was broken. `from` and `needs` let that page say what was missing.
+  if (to.meta?.roles && !auth.hasRole(to.meta.roles)) {
+    return {
+      name: 'forbidden',
+      query: { from: to.fullPath, needs: to.meta.roles.join(',') }
+    }
   }
 
   return true

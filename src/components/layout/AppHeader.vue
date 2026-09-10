@@ -1,9 +1,10 @@
 <script setup>
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AppNav from './AppNav.vue'
 import AccountMenu from '@/components/auth/AccountMenu.vue'
 import { useBreakpoint } from '@/composables/useBreakpoint'
+import { useAuthStore } from '@/stores/authStore'
 
 /**
  * Site header. Owns the mobile menu's open/closed state.
@@ -12,11 +13,23 @@ import { useBreakpoint } from '@/composables/useBreakpoint'
  * keeps the behaviour inside the component tree, and means `aria-expanded` and
  * the visual state can never drift apart.
  */
-const links = [
+const auth = useAuthStore()
+
+/**
+ * Navigation follows the signed-in role (BR C.2).
+ *
+ * Hiding a link is courtesy, not access control: the route guard still refuses
+ * the page and the Firestore rules still refuse the data if someone types the
+ * address. What this avoids is offering a link that would only ever lead to a
+ * refusal.
+ */
+const links = computed(() => [
   { name: 'home', label: 'Home', to: { name: 'home' } },
   { name: 'events', label: 'Planting Events', to: { name: 'events' } },
-  { name: 'volunteer', label: 'Volunteer', to: { name: 'volunteer' } }
-]
+  { name: 'volunteer', label: 'Volunteer', to: { name: 'volunteer' } },
+  ...(auth.isCoordinator ? [{ name: 'manage', label: 'Manage', to: { name: 'manage' } }] : []),
+  ...(auth.isAdmin ? [{ name: 'admin', label: 'Admin', to: { name: 'admin' } }] : [])
+])
 
 const isOpen = ref(false)
 const route = useRoute()

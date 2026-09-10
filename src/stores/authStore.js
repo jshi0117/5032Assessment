@@ -33,6 +33,9 @@ export const useAuthStore = defineStore('auth', () => {
   const role = computed(() => (isAuthenticated.value ? (profile.value?.role ?? DEFAULT_ROLE) : null))
 
   const isAdmin = computed(() => role.value === 'admin')
+
+  /** The seed-data volunteer this account is linked to, if any. */
+  const volunteerId = computed(() => profile.value?.volunteerId ?? null)
   const isCoordinator = computed(() => role.value === 'coordinator' || isAdmin.value)
 
   const displayName = computed(() => {
@@ -132,7 +135,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     account, profile, ready, error,
-    isAuthenticated, role, isAdmin, isCoordinator, displayName, initials,
+    isAuthenticated, role, isAdmin, isCoordinator, volunteerId, displayName, initials,
     ROLES,
     hasRole, init, whenReady,
     register, login, logout, requestPasswordReset, changePassword, updateProfileDetails
