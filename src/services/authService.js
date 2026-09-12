@@ -11,6 +11,7 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 
+import { sanitizeEmail, sanitizeText } from '@/utils/sanitize'
 import { auth, db, persistenceReady } from './firebase'
 
 /**
@@ -140,29 +141,42 @@ export async function fetchProfile(uid, fallback = {}) {
  */
 export async function registerUser({ firstName, lastName, email, password, suburb = '' }) {
   await persistenceReady
-  const { user } = await createUserWithEmailAndPassword(auth, email, password)
 
-  const displayName = `${firstName} ${lastName}`.trim()
+  // Sanitised here rather than only in the form (BR C.4). The form is one
+  // caller; this is the boundary every caller has to cross, so cleaning it here
+  // is what makes it true of the stored data rather than of one screen.
+  // The password is never touched — it is a credential, not text to be tidied,
+  // and it is not stored by this application in any case.
+  const clean = {
+    firstName: sanitizeText(firstName, { maxLength: 40 }),
+    lastName: sanitizeText(lastName, { maxLength: 40 }),
+    email: sanitizeEmail(email),
+    suburb: sanitizeText(suburb, { maxLength: 60 })
+  }
+
+  const { user } = await createUserWithEmailAndPassword(auth, clean.email, password)
+
+  const displayName = `${clean.firstName} ${clean.lastName}`.trim()
   if (displayName) await updateProfile(user, { displayName })
 
   await setDoc(userRef(user.uid), {
-    firstName,
-    lastName,
+    firstName: clean.firstName,
+    lastName: clean.lastName,
     email: user.email,
-    suburb,
+    suburb: clean.suburb,
     role: DEFAULT_ROLE,
     createdAt: serverTimestamp()
   })
 
   return {
     account: toAccount({ ...user, displayName }),
-    profile: toProfile(user.uid, { firstName, lastName, email: user.email, suburb, role: DEFAULT_ROLE })
+    profile: toProfile(user.uid, { ...clean, email: user.email, role: DEFAULT_ROLE })
   }
 }
 
 export async function loginUser(email, password) {
   await persistenceReady
-  const { user } = await signInWithEmailAndPassword(auth, email, password)
+  const { user } = await signInWithEmailAndPassword(auth, sanitizeEmail(email), password)
   return { account: toAccount(user), profile: await fetchProfile(user.uid, { email: user.email }) }
 }
 
@@ -179,7 +193,7 @@ export async function logoutUser() {
  */
 export async function requestPasswordReset(email) {
   try {
-    await sendPasswordResetEmail(auth, email)
+    await sendPasswordResetEmail(auth, sanitizeEmail(email))
   } catch (err) {
     if (err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-email') return
     throw err
@@ -208,10 +222,20 @@ export async function changeOwnPassword(currentPassword, newPassword) {
 
 /** Profile edits the account owner is allowed to make. Never touches `role`. */
 export async function updateOwnProfile(uid, { firstName, lastName, suburb }) {
-  await updateDoc(userRef(uid), { firstName, lastName, suburb })
-  if (auth.currentUser?.uid === uid) {
-    await updateProfile(auth.currentUser, { displayName: `${firstName} ${lastName}`.trim() })
+  const clean = {
+    firstName: sanitizeText(firstName, { maxLength: 40 }),
+    lastName: sanitizeText(lastName, { maxLength: 40 }),
+    suburb: sanitizeText(suburb, { maxLength: 60 })
   }
+  await updateDoc(userRef(uid), clean)
+  if (auth.currentUser?.uid === uid) {
+    await updateProfile(auth.currentUser, {
+      displayName: `${clean.firstName} ${clean.lastName}`.trim()
+    })
+  }
+  // The cleaned values are returned so the caller stores and shows what was
+  // actually written, rather than the raw text the form still holds.
+  return clean
 }
 
 /**

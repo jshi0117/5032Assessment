@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import { useAuthStore } from '@/stores/authStore'
 import { useForm } from '@/composables/useForm'
@@ -9,7 +9,7 @@ import BaseInput from '@/components/base/BaseInput.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseAlert from '@/components/base/BaseAlert.vue'
 import {
-  required, maxLength, strongPassword, matches, differsFrom
+  required, minLength, maxLength, strongPassword, matches, differsFrom
 } from '@/utils/validators'
 
 /**
@@ -22,6 +22,7 @@ import {
 const auth = useAuthStore()
 
 const changed = ref(false)
+const detailsSaved = ref(false)
 
 const ROLE_LABELS = {
   volunteer: 'Volunteer',
@@ -38,6 +39,74 @@ const ROLE_NOTES = {
 }
 
 const roleNote = computed(() => ROLE_NOTES[auth.role] ?? ROLE_NOTES.volunteer)
+
+/**
+ * Editing your own name and suburb.
+ *
+ * The fields the account holder owns, and only those. There is no role field
+ * and no email field: the role belongs to an administrator, and changing the
+ * sign-in address is a credential change that has to go through Firebase
+ * Authentication with its own verification, not a profile edit. The Firestore
+ * rules refuse a write that touches either, so the omission is enforced rather
+ * than merely respected.
+ */
+const detailsForm = useForm({
+  initialValues: {
+    firstName: auth.profile?.firstName ?? '',
+    lastName: auth.profile?.lastName ?? '',
+    suburb: auth.profile?.suburb ?? ''
+  },
+  schema: {
+    firstName: [required('First name'), minLength(2, 'First name'), maxLength(40, 'First name')],
+    lastName: [required('Last name'), minLength(2, 'Last name'), maxLength(40, 'Last name')],
+    suburb: [maxLength(60, 'Suburb')]
+  },
+  async onSubmit(values) {
+    detailsSaved.value = false
+    try {
+      await auth.updateProfileDetails({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        suburb: values.suburb
+      })
+    } catch (err) {
+      throw new Error(
+        describeAuthError(err, {
+          'permission-denied': 'You do not have permission to change those details.'
+        })
+      )
+    }
+    // Sanitising happens at the write boundary, so the stored value can differ
+    // from what was typed — collapsed spacing, for one. Putting the saved
+    // version back in the fields keeps the form honest about what was kept.
+    detailsForm.reset({
+      firstName: auth.profile?.firstName ?? '',
+      lastName: auth.profile?.lastName ?? '',
+      suburb: auth.profile?.suburb ?? ''
+    })
+    detailsSaved.value = true
+  }
+})
+
+/**
+ * The profile can arrive after this page has mounted — a hard refresh has to
+ * wait for Firebase to restore the session first. Filling the form then would
+ * overwrite whatever the user had already typed, so it only refills while the
+ * form is still untouched.
+ */
+watch(
+  () => auth.profile,
+  (profile) => {
+    if (!profile) return
+    if (Object.keys(detailsForm.touched).length) return
+    detailsForm.reset({
+      firstName: profile.firstName ?? '',
+      lastName: profile.lastName ?? '',
+      suburb: profile.suburb ?? ''
+    })
+    detailsSaved.value = false
+  }
+)
 
 const form = useForm({
   initialValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
@@ -88,24 +157,69 @@ const form = useForm({
         <section class="card h-100" aria-labelledby="details-heading">
           <div class="card-body">
             <h2 id="details-heading" class="h6 mb-3">Your details</h2>
+
+            <BaseAlert v-if="detailsSaved" variant="success" title="Details saved">
+              Your name and suburb have been updated.
+            </BaseAlert>
+
+            <BaseAlert
+              v-if="detailsForm.submitError.value"
+              variant="danger"
+              title="Could not save your details"
+            >
+              {{ detailsForm.submitError.value }}
+            </BaseAlert>
+
+            <form novalidate @submit.prevent="detailsForm.handleSubmit">
+              <BaseInput
+                label="First name"
+                name="firstName"
+                autocomplete="given-name"
+                required
+                v-bind="detailsForm.fieldProps('firstName')"
+              />
+
+              <BaseInput
+                label="Last name"
+                name="lastName"
+                autocomplete="family-name"
+                required
+                v-bind="detailsForm.fieldProps('lastName')"
+              />
+
+              <BaseInput
+                label="Suburb"
+                name="suburb"
+                autocomplete="address-level2"
+                hint="Optional — helps us suggest planting days near you."
+                v-bind="detailsForm.fieldProps('suburb')"
+              />
+
+              <BaseButton
+                type="submit"
+                :loading="detailsForm.submitting.value"
+                loading-text="Saving…"
+              >
+                Save details
+              </BaseButton>
+            </form>
+
+            <hr />
+
             <dl class="row mb-0 small">
-              <dt class="col-5 text-body-secondary fw-normal">Name</dt>
-              <dd class="col-7">{{ auth.displayName }}</dd>
-
+              <!-- Read-only on purpose: see the comment on detailsForm. -->
               <dt class="col-5 text-body-secondary fw-normal">Email</dt>
-              <dd class="col-7 text-break">{{ auth.account?.email }}</dd>
-
-              <dt class="col-5 text-body-secondary fw-normal">Suburb</dt>
-              <dd class="col-7">{{ auth.profile?.suburb || '—' }}</dd>
+              <dd class="col-7 text-break mb-2">{{ auth.account?.email }}</dd>
 
               <dt class="col-5 text-body-secondary fw-normal">Role</dt>
-              <dd class="col-7">
+              <dd class="col-7 mb-0">
                 <span class="badge text-bg-light">{{ roleLabel }}</span>
               </dd>
             </dl>
-            <p class="form-text mt-3 mb-0">{{ roleNote }}</p>
+            <p class="form-text mt-2 mb-0">{{ roleNote }}</p>
             <p class="form-text mb-0">
-              Only a coordinator can change your role.
+              Your sign-in address and your role cannot be changed here. Ask an
+              administrator to change your role.
             </p>
           </div>
         </section>

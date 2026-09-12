@@ -1,0 +1,219 @@
+rules_version = '2';
+
+/**
+ * Firestore security rules (BR C.4).
+ *
+ * This is the security boundary. Everything in the Vue application — the route
+ * guards, the hidden navigation links, the disabled controls — governs one
+ * browser tab and can be stepped around by anyone willing to open a console.
+ * These rules run on Google's servers and cannot be, so where the two disagree,
+ * this file wins.
+ *
+ * The default is deny: any path not matched below is refused outright, which is
+ * why there is no catch-all rule at the bottom.
+ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers -----------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function myUid() {
+      return request.auth.uid;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    /**
+     * Roles are read back out of Firestore rather than from a token claim.
+     * Custom claims would avoid this lookup, but setting one needs the Admin
+     * SDK, which a browser-only project has no way to run. The cost is one
+     * document read per evaluation, which Firestore caches within a request.
+     */
+    function myRole() {
+      return exists(userPath(myUid()))
+        ? get(userPath(myUid())).data.get('role', 'volunteer')
+        : 'volunteer';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && myRole() == 'admin';
+    }
+
+    function isValidRole(role) {
+      return role in ['volunteer', 'coordinator', 'admin'];
+    }
+
+    // ---- users -------------------------------------------------------------
+
+    match /users/{uid} {
+
+      // Your own profile, or anyone's if you administer the site. Deliberately
+      // not public: it carries an email address and a suburb.
+      allow get: if isSignedIn() && (uid == myUid() || isAdmin());
+
+      // Listing every account is an administrator's screen only.
+      allow list: if isAdmin();
+
+      /**
+       * Sign-up writes its own profile.
+       *
+       * The role is pinned to 'volunteer' here, not merely defaulted in the
+       * client. Registration is the one moment a stranger can create a document
+       * of their own, so this is where "nobody signs themselves up as an
+       * administrator" has to be true rather than customary. Promotion is the
+       * administrator rule below.
+       *
+       * The email is checked against the token so a profile cannot be created
+       * carrying somebody else's address.
+       */
+      allow create: if isSignedIn()
+        && uid == myUid()
+        && request.resource.data.role == 'volunteer'
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.get('volunteerId', null) == null
+        && request.resource.data.firstName is string
+        && request.resource.data.firstName.size() <= 40
+        && request.resource.data.lastName is string
+        && request.resource.data.lastName.size() <= 40
+        && request.resource.data.get('suburb', '') is string
+        && request.resource.data.get('suburb', '').size() <= 60;
+
+      /**
+       * The account owner may correct their own details.
+       *
+       * Both privileged fields have to come back unchanged. Without that, the
+       * ordinary "edit my profile" path would be a way to grant yourself
+       * administrator access, which is precisely the hole the client-side
+       * guards cannot close.
+       */
+      allow update: if isSignedIn()
+        && uid == myUid()
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.get('volunteerId', null)
+             == resource.data.get('volunteerId', null)
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.firstName is string
+        && request.resource.data.firstName.size() <= 40
+        && request.resource.data.lastName is string
+        && request.resource.data.lastName.size() <= 40
+        && request.resource.data.get('suburb', '') is string
+        && request.resource.data.get('suburb', '').size() <= 60;
+
+      /**
+       * An administrator may change anyone's role and volunteer link, except
+       * their own role — the last administrator demoting themselves would leave
+       * the project with no way back in but the Firebase console.
+       */
+      allow update: if isAdmin()
+        && isValidRole(request.resource.data.role)
+        && request.resource.data.email == resource.data.email
+        && (uid != myUid() || request.resource.data.role == resource.data.role);
+
+      // Accounts are disabled through Firebase Authentication, not deleted
+      // here; a profile outliving its credentials is the lesser problem.
+      allow delete: if false;
+    }
+
+    // ---- ratings -----------------------------------------------------------
+
+    function ratingPath(eventId, uid) {
+      return /databases/$(database)/documents/eventRatings/$(eventId + '__' + uid);
+    }
+
+    /** The score this user had recorded before this write, or 0 for none. */
+    function previousScore(eventId) {
+      return exists(ratingPath(eventId, myUid()))
+        ? get(ratingPath(eventId, myUid())).data.score
+        : 0;
+    }
+
+    /**
+     * The score this user will have once the transaction commits.
+     *
+     * `getAfter` is what makes the totals below checkable: the rating document
+     * and the totals document are written together, so the totals can be
+     * required to agree with the rating landing beside them.
+     */
+    function nextScore(eventId) {
+      return getAfter(ratingPath(eventId, myUid())).data.score;
+    }
+
+    match /eventRatings/{ratingId} {
+
+      /**
+       * One document per person per planting day, addressed by a derived id.
+       * Pinning the id here is what makes "one rating each" a fact about the
+       * data: there is no second document to write.
+       */
+      function isMine() {
+        return isSignedIn()
+          && ratingId == request.resource.data.eventId + '__' + myUid()
+          && request.resource.data.uid == myUid();
+      }
+
+      function isValidScore() {
+        return request.resource.data.score is int
+          && request.resource.data.score >= 1
+          && request.resource.data.score <= 5;
+      }
+
+      // An individual score is between the rater and the site; what everyone
+      // sees is the average, which is a different document.
+      allow get: if isSignedIn()
+        && (ratingId.split('__')[1] == myUid() || isAdmin());
+      allow list: if isAdmin();
+
+      allow create, update: if isMine() && isValidScore();
+
+      // Withdrawing a rating would need the totals adjusted in the same
+      // transaction. Until that path exists in the application, refusing the
+      // delete is what keeps the totals honest.
+      allow delete: if false;
+    }
+
+    match /eventStats/{eventId} {
+
+      /** Totals before this write, or zero for a planting day nobody has rated. */
+      function previousCount() {
+        return resource == null ? 0 : resource.data.get('count', 0);
+      }
+
+      function previousSum() {
+        return resource == null ? 0 : resource.data.get('sum', 0);
+      }
+
+      /**
+       * The averages are shown to signed-out visitors, so reading is open.
+       * Writing is not: the totals may only move by exactly the amount this
+       * user's own rating moved them.
+       *
+       * A first-time rating adds one to the count; changing an existing rating
+       * leaves the count alone and shifts the sum by the difference. Anything
+       * else — inflating a planting day's average, zeroing someone else's — is
+       * refused, even though the write itself comes from a signed-in user.
+       *
+       * What is not checked here is the distribution buckets: verifying five
+       * numbers against a score would make this rule considerably harder to
+       * read for no gain in what an attacker could achieve, since the average
+       * that everything is judged on comes from count and sum.
+       */
+      allow read: if true;
+
+      allow write: if isSignedIn()
+        && request.resource.data.count is int
+        && request.resource.data.sum is int
+        && nextScore(eventId) >= 1
+        && nextScore(eventId) <= 5
+        && request.resource.data.count
+             == previousCount() + (previousScore(eventId) == 0 ? 1 : 0)
+        && request.resource.data.sum
+             == previousSum() - previousScore(eventId) + nextScore(eventId);
+    }
+  }
+}

@@ -129,8 +129,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function updateProfileDetails(details) {
     if (!account.value) throw new Error('You need to be signed in to do that.')
-    await authService.updateOwnProfile(account.value.uid, details)
-    profile.value = { ...profile.value, ...details }
+    const saved = await authService.updateOwnProfile(account.value.uid, details)
+    profile.value = { ...profile.value, ...saved }
+    return saved
   }
 
   return {

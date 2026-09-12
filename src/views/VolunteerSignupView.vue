@@ -15,6 +15,7 @@ import {
   required, email as emailFormat, auMobile, minLength, maxLength,
   numberRange, atMost, matches, accepted
 } from '@/utils/validators'
+import { sanitizeEmail, sanitizeText } from '@/utils/sanitize'
 
 /**
  * Volunteer registration for a planting day (BR B.1).
@@ -87,7 +88,9 @@ const form = useForm({
   onSubmit: async (values) => {
     // No accounts yet (BR C.1), so a registration is keyed by the person's email
     // address — but as a digest, so no readable address is written to the device.
-    const volunteerId = volunteerKeyFromEmail(values.emailAddress)
+    // Sanitised before it is hashed, so the same address typed with stray
+    // whitespace or in a different case produces the same key (BR C.4).
+    const volunteerId = volunteerKeyFromEmail(sanitizeEmail(values.emailAddress))
     // Only the id and the places booked are persisted; see eventService for why
     // the rest of the contact details are deliberately not stored on the device.
     const updated = await store.register(values.eventId, volunteerId, {
@@ -96,7 +99,7 @@ const form = useForm({
     confirmation.value = {
       eventId: updated.id,
       volunteerId,
-      name: values.fullName.trim(),
+      name: sanitizeText(values.fullName, { maxLength: 60 }),
       places: Number(values.places)
     }
     cancelled.value = false
