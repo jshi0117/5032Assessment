@@ -77,3 +77,28 @@ export async function updateUserRole(uid, role, actingUid) {
 export async function updateUserVolunteerId(uid, volunteerId) {
   await updateDoc(doc(db, 'users', uid), { volunteerId: volunteerId || null })
 }
+
+/**
+ * The volunteer roster (BR D.3).
+ *
+ * The 200 volunteer records generated for the project (Mockaroo-style mock
+ * data in src/data/volunteers.json). Async like everything else in this layer
+ * so that moving the roster into Firestore later changes no caller. Phone
+ * numbers are left out: nothing on the roster screen needs them.
+ */
+export async function listVolunteers() {
+  return seedVolunteers.map((volunteer) => ({
+    id: volunteer.id,
+    firstName: volunteer.firstName,
+    lastName: volunteer.lastName,
+    name: `${volunteer.firstName} ${volunteer.lastName}`,
+    email: volunteer.email,
+    suburb: volunteer.suburb,
+    postcode: volunteer.postcode,
+    role: volunteer.role,
+    joinedDate: volunteer.joinedDate,
+    eventsAttended: volunteer.eventsAttended,
+    hoursContributed: volunteer.hoursContributed,
+    status: volunteer.status
+  }))
+}

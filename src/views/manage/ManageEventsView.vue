@@ -1,9 +1,12 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 
 import { useEventStore } from '@/stores/eventStore'
 import { useAuthStore } from '@/stores/authStore'
 import BaseAlert from '@/components/base/BaseAlert.vue'
+import DataTablesTable from '@/components/base/DataTablesTable.vue'
+import { escapeHtml } from '@/utils/sanitize'
 import {
   formatDateMedium, formatTimeRange, formatStatus, statusVariant, formatRating
 } from '@/utils/format'
@@ -23,7 +26,7 @@ import {
 const store = useEventStore()
 const auth = useAuthStore()
 
-const expanded = ref(null)
+const router = useRouter()
 
 onMounted(() => store.load())
 
@@ -41,9 +44,136 @@ const visibleEvents = computed(() => {
 
 const unlinked = computed(() => !auth.isAdmin && !auth.volunteerId)
 
-const sorted = computed(() =>
-  [...visibleEvents.value].sort((a, b) => a.date.localeCompare(b.date))
-)
+/**
+ * Table columns (BR D.3), rendered by DataTables. The date column displays a
+ * formatted date but sorts on the ISO one. Cells are HTML strings, so every
+ * value from the data is escaped before it goes in.
+ */
+const columns = [
+  {
+    key: 'title',
+    label: 'Planting day',
+    html: (event) =>
+      `<a href="${escapeHtml(router.resolve({ name: 'event-detail', params: { id: event.id } }).href)}" data-route>${escapeHtml(event.title)}</a>`
+  },
+  { key: 'suburb', label: 'Suburb' },
+  {
+    key: 'date',
+    label: 'Date',
+    value: (event) => formatDateMedium(event.date),
+    sortValue: (event) => `${event.date}T${event.startTime}`,
+    html: (event) =>
+      `<span class="text-nowrap">${escapeHtml(formatDateMedium(event.date))}</span>` +
+      `<span class="d-block small text-body-secondary text-nowrap">${escapeHtml(formatTimeRange(event.startTime, event.endTime))}</span>`,
+    exportValue: (event) =>
+      `${formatDateMedium(event.date)} ${formatTimeRange(event.startTime, event.endTime)}`
+  },
+  {
+    key: 'status',
+    label: 'Status',
+    value: (event) => formatStatus(event.displayStatus),
+    html: (event) =>
+      `<span class="badge ${statusVariant(event.displayStatus)}">${escapeHtml(formatStatus(event.displayStatus))}</span>`
+  },
+  { key: 'registered', label: 'Registered', align: 'end', search: 'number' },
+  { key: 'capacity', label: 'Capacity', align: 'end', search: 'number' },
+  {
+    key: 'rating',
+    label: 'Rating',
+    align: 'end',
+    search: 'number',
+    value: (event) => (event.ratingCount ? event.averageRating : null),
+    html: (event) =>
+      event.ratingCount
+        ? `<span class="text-nowrap">${escapeHtml(formatRating(event.averageRating))} <span class="small text-body-secondary">(${event.ratingCount})</span></span>`
+        : '<span class="text-body-secondary">—</span>',
+    exportValue: (event) =>
+      event.ratingCount ? `${formatRating(event.averageRating)} (${event.ratingCount})` : ''
+  },
+  {
+    key: 'actions',
+    label: 'Sign-ups',
+    sortable: false,
+    search: false,
+    exportable: false,
+    html: (event) =>
+      `<button type="button" class="btn btn-sm btn-outline-secondary text-nowrap js-signups" ` +
+      `aria-expanded="false" aria-controls="registrations-${escapeHtml(event.id)}">Show sign-ups</button>`
+  }
+]
+
+/**
+ * The sign-ups under a planting day, built as DOM nodes with `textContent` —
+ * the volunteer keys came from a form and must never be parsed as markup.
+ */
+function signUpsFor(event) {
+  const box = document.createElement('div')
+  box.id = `registrations-${event.id}`
+  box.className = 'small'
+
+  if (!event.localRegistrations.length) {
+    const note = document.createElement('p')
+    note.className = 'mb-0 text-body-secondary'
+    note.textContent =
+      `No sign-ups have been taken on this device yet. The ${event.registered} shown ` +
+      'above come from the existing volunteer records.'
+    box.append(note)
+    return box
+  }
+
+  const list = document.createElement('ul')
+  list.className = 'list-unstyled mb-0'
+  for (const registration of event.localRegistrations) {
+    const item = document.createElement('li')
+    item.className = 'd-flex justify-content-between border-bottom py-1'
+    const who = document.createElement('span')
+    who.className = 'text-truncate'
+    who.textContent = registration.volunteerId
+    const places = document.createElement('span')
+    places.className = 'text-nowrap ms-3'
+    places.textContent = `${registration.places} ${registration.places === 1 ? 'place' : 'places'}`
+    item.append(who, places)
+    list.append(item)
+  }
+  box.append(list)
+  return box
+}
+
+/**
+ * Wires up the two kinds of interactive cell once DataTables has built the
+ * table. Listeners sit on the table body, so they keep working for rows drawn
+ * later by paging, sorting or searching.
+ *
+ *  - "Show sign-ups" opens a DataTables child row under its planting day.
+ *  - Title links go through the router, so following one does not reload the
+ *    whole application.
+ */
+function onTableReady(dt) {
+  const body = dt.table().body()
+
+  body.addEventListener('click', (e) => {
+    const toggle = e.target.closest('button.js-signups')
+    if (toggle) {
+      const row = dt.row(toggle.closest('tr'))
+      if (row.child.isShown()) {
+        row.child.hide()
+        toggle.setAttribute('aria-expanded', 'false')
+        toggle.textContent = 'Show sign-ups'
+      } else {
+        row.child(signUpsFor(row.data()), 'bg-body-tertiary').show()
+        toggle.setAttribute('aria-expanded', 'true')
+        toggle.textContent = 'Hide sign-ups'
+      }
+      return
+    }
+
+    const link = e.target.closest('a[data-route]')
+    if (link && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0) {
+      e.preventDefault()
+      router.push(link.getAttribute('href'))
+    }
+  })
+}
 
 const totals = computed(() => {
   const events = visibleEvents.value
@@ -65,8 +195,6 @@ const totals = computed(() => {
       : null
   }
 })
-
-const toggle = (id) => { expanded.value = expanded.value === id ? null : id }
 </script>
 
 <template>
@@ -74,7 +202,12 @@ const toggle = (id) => { expanded.value = expanded.value === id ? null : id }
     <p class="text-body-secondary small mb-1">
       {{ auth.isAdmin ? 'All planting days' : 'The planting days you run' }}
     </p>
-    <h1 class="h3 mb-4">Manage planting days</h1>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+      <h1 class="h3 mb-0">Manage planting days</h1>
+      <RouterLink class="btn btn-sm btn-outline-primary" :to="{ name: 'roster' }">
+        Volunteer roster
+      </RouterLink>
+    </div>
 
     <BaseAlert v-if="store.error" variant="danger" title="Could not load planting days">
       {{ store.error }}
@@ -106,97 +239,19 @@ const toggle = (id) => { expanded.value = expanded.value === id ? null : id }
 
       <p v-if="store.loading" role="status">Loading planting days…</p>
 
-      <p v-else-if="!sorted.length" class="text-body-secondary">
+      <p v-else-if="!visibleEvents.length" class="text-body-secondary">
         There are no planting days to show.
       </p>
 
-      <!-- Wide table, narrow screens: the table scrolls inside its own box
-           rather than making the whole page scroll sideways. -->
-      <div v-else class="table-responsive">
-        <table class="table align-middle">
-          <caption class="visually-hidden">
-            Planting days you can manage, with capacity, registrations and ratings
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Planting day</th>
-              <th scope="col">Date</th>
-              <th scope="col">Status</th>
-              <th scope="col" class="text-end">Registered</th>
-              <th scope="col" class="text-end">Rating</th>
-              <th scope="col"><span class="visually-hidden">Registrations</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="event in sorted" :key="event.id">
-              <tr>
-                <th scope="row" class="fw-normal">
-                  <RouterLink :to="{ name: 'event-detail', params: { id: event.id } }">
-                    {{ event.title }}
-                  </RouterLink>
-                  <span class="d-block small text-body-secondary">{{ event.suburb }}</span>
-                </th>
-                <td class="text-nowrap">
-                  {{ formatDateMedium(event.date) }}
-                  <span class="d-block small text-body-secondary">
-                    {{ formatTimeRange(event.startTime, event.endTime) }}
-                  </span>
-                </td>
-                <td>
-                  <span class="badge" :class="statusVariant(event.displayStatus)">
-                    {{ formatStatus(event.displayStatus) }}
-                  </span>
-                </td>
-                <td class="text-end text-nowrap">
-                  {{ event.registered }} / {{ event.capacity }}
-                </td>
-                <td class="text-end text-nowrap">
-                  <template v-if="event.ratingCount">
-                    {{ formatRating(event.averageRating) }}
-                    <span class="small text-body-secondary">({{ event.ratingCount }})</span>
-                  </template>
-                  <span v-else class="text-body-secondary">—</span>
-                </td>
-                <td class="text-end">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary"
-                    :aria-expanded="expanded === event.id"
-                    :aria-controls="`registrations-${event.id}`"
-                    @click="toggle(event.id)"
-                  >
-                    {{ expanded === event.id ? 'Hide' : 'Show' }} sign-ups
-                  </button>
-                </td>
-              </tr>
-              <tr v-show="expanded === event.id" :id="`registrations-${event.id}`">
-                <td colspan="6" class="bg-body-tertiary">
-                  <p v-if="!event.localRegistrations.length" class="small mb-0 text-body-secondary">
-                    No sign-ups have been taken on this device yet. The
-                    {{ event.registered }} shown above come from the existing
-                    volunteer records.
-                  </p>
-                  <ul v-else class="list-unstyled small mb-0">
-                    <li
-                      v-for="registration in event.localRegistrations"
-                      :key="registration.volunteerId"
-                      class="d-flex justify-content-between border-bottom py-1"
-                    >
-                      <!-- Interpolated, never v-html: this string came from a
-                           form and must render as text whatever it contains. -->
-                      <span class="text-truncate">{{ registration.volunteerId }}</span>
-                      <span class="text-nowrap ms-3">
-                        {{ registration.places }}
-                        {{ registration.places === 1 ? 'place' : 'places' }}
-                      </span>
-                    </li>
-                  </ul>
-                </td>
-              </tr>
-            </template>
-          </tbody>
-        </table>
-      </div>
+      <DataTablesTable
+        v-else
+        :columns="columns"
+        :rows="visibleEvents"
+        caption="Planting days you can manage, with capacity, registrations and ratings"
+        :export-title="auth.isAdmin ? 'All planting days' : 'My planting days'"
+        :order="[[2, 'asc']]"
+        @ready="onTableReady"
+      />
     </template>
   </div>
 </template>

@@ -1,10 +1,11 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 
 import { useAdminStore } from '@/stores/adminStore'
 import { useAuthStore } from '@/stores/authStore'
 import { linkableVolunteers } from '@/services/userService'
 import BaseAlert from '@/components/base/BaseAlert.vue'
+import InteractiveTable from '@/components/base/InteractiveTable.vue'
 
 /**
  * Account and role administration (BR C.2).
@@ -21,8 +22,6 @@ import BaseAlert from '@/components/base/BaseAlert.vue'
 const admin = useAdminStore()
 const auth = useAuthStore()
 
-const search = ref('')
-const roleFilter = ref('')
 const saving = ref(null)
 const saveError = ref(null)
 const saved = ref(null)
@@ -35,14 +34,29 @@ const ROLE_OPTIONS = [
   { value: 'admin', label: 'Administrator' }
 ]
 
-const filtered = computed(() => {
-  const query = search.value.trim().toLowerCase()
-  return admin.users.filter((user) => {
-    if (roleFilter.value && user.role !== roleFilter.value) return false
-    if (!query) return true
-    return [user.name, user.email, user.suburb].join(' ').toLowerCase().includes(query)
-  })
-})
+const roleLabel = (role) => ROLE_OPTIONS.find((option) => option.value === role)?.label ?? role
+
+/**
+ * Table columns (BR D.3). Role and linked volunteer are edited in place, so
+ * their cells are form controls; `value` is what they sort, filter and export by.
+ */
+const columns = [
+  { key: 'name', label: 'Name', rowHeader: true },
+  { key: 'email', label: 'Email' },
+  { key: 'suburb', label: 'Suburb' },
+  {
+    key: 'role',
+    label: 'Role',
+    filter: 'select',
+    options: ROLE_OPTIONS.map((option) => option.label),
+    value: (user) => roleLabel(user.role)
+  },
+  {
+    key: 'volunteerId',
+    label: 'Linked volunteer',
+    value: (user) => user.volunteerId ?? 'Not linked'
+  }
+]
 
 const isSelf = (user) => user.uid === auth.account?.uid
 
@@ -97,96 +111,66 @@ async function changeVolunteer(user, volunteerId) {
       </BaseAlert>
       <BaseAlert v-if="saved" variant="success">{{ saved }}</BaseAlert>
 
-      <div class="row g-3 mb-3">
-        <div class="col-sm-7">
-          <label class="form-label" for="field-userSearch">Search accounts</label>
-          <input
-            id="field-userSearch"
-            v-model="search"
-            class="form-control"
-            type="search"
-            placeholder="Name, email or suburb"
-          />
-        </div>
-        <div class="col-sm-5">
-          <label class="form-label" for="field-roleFilter">Role</label>
-          <select id="field-roleFilter" v-model="roleFilter" class="form-select">
-            <option value="">All roles</option>
+      <p v-if="admin.loading" role="status">Loading accounts…</p>
+
+      <InteractiveTable
+        v-else
+        :columns="columns"
+        :rows="admin.users"
+        row-key="uid"
+        caption="Accounts, their roles and linked volunteer records"
+        export-title="Accounts"
+        :initial-sort="{ key: 'email', dir: 'asc' }"
+      >
+        <template #cell-name="{ row: user }">
+          <!-- Interpolated, never v-html. Names and suburbs are typed by
+               the account holder, so they are rendered as text. -->
+          {{ user.name }}
+          <span v-if="isSelf(user)" class="badge text-bg-light ms-1">You</span>
+        </template>
+        <template #cell-email="{ row: user }">
+          <span class="text-nowrap">{{ user.email }}</span>
+        </template>
+        <template #cell-role="{ row: user }">
+          <label class="visually-hidden" :for="`role-${user.uid}`">
+            Role for {{ user.email }}
+          </label>
+          <select
+            :id="`role-${user.uid}`"
+            class="form-select form-select-sm"
+            :value="user.role"
+            :disabled="saving === user.uid || isSelf(user)"
+            @change="changeRole(user, $event.target.value)"
+          >
             <option v-for="option in ROLE_OPTIONS" :key="option.value" :value="option.value">
               {{ option.label }}
             </option>
           </select>
-        </div>
-      </div>
-
-      <p class="small text-body-secondary" role="status">
-        Showing {{ filtered.length }} of {{ admin.users.length }} accounts.
-      </p>
-
-      <p v-if="admin.loading" role="status">Loading accounts…</p>
-
-      <div v-else class="table-responsive">
-        <table class="table align-middle">
-          <caption class="visually-hidden">Accounts, their roles and linked volunteer records</caption>
-          <thead>
-            <tr>
-              <th scope="col">Account</th>
-              <th scope="col">Role</th>
-              <th scope="col">Linked volunteer</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="user in filtered" :key="user.uid">
-              <th scope="row" class="fw-normal">
-                <!-- Interpolated, never v-html. Names and suburbs are typed by
-                     the account holder, so they are rendered as text. -->
-                {{ user.name }}
-                <span class="d-block small text-body-secondary text-break">{{ user.email }}</span>
-                <span v-if="isSelf(user)" class="badge text-bg-light mt-1">You</span>
-              </th>
-              <td>
-                <label class="visually-hidden" :for="`role-${user.uid}`">
-                  Role for {{ user.email }}
-                </label>
-                <select
-                  :id="`role-${user.uid}`"
-                  class="form-select form-select-sm"
-                  :value="user.role"
-                  :disabled="saving === user.uid || isSelf(user)"
-                  @change="changeRole(user, $event.target.value)"
-                >
-                  <option v-for="option in ROLE_OPTIONS" :key="option.value" :value="option.value">
-                    {{ option.label }}
-                  </option>
-                </select>
-                <span v-if="isSelf(user)" class="form-text">
-                  You cannot change your own role.
-                </span>
-              </td>
-              <td>
-                <label class="visually-hidden" :for="`volunteer-${user.uid}`">
-                  Linked volunteer record for {{ user.email }}
-                </label>
-                <select
-                  :id="`volunteer-${user.uid}`"
-                  class="form-select form-select-sm"
-                  :value="user.volunteerId ?? ''"
-                  :disabled="saving === user.uid"
-                  @change="changeVolunteer(user, $event.target.value)"
-                >
-                  <option value="">Not linked</option>
-                  <option v-for="option in linkableVolunteers" :key="option.value" :value="option.value">
-                    {{ option.label }}
-                  </option>
-                </select>
-                <span v-if="user.role === 'coordinator' && !user.volunteerId" class="form-text text-warning-emphasis">
-                  Link this account so their planting days appear.
-                </span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+          <span v-if="isSelf(user)" class="form-text">
+            You cannot change your own role.
+          </span>
+        </template>
+        <template #cell-volunteerId="{ row: user }">
+          <label class="visually-hidden" :for="`volunteer-${user.uid}`">
+            Linked volunteer record for {{ user.email }}
+          </label>
+          <select
+            :id="`volunteer-${user.uid}`"
+            class="form-select form-select-sm"
+            :value="user.volunteerId ?? ''"
+            :disabled="saving === user.uid"
+            @change="changeVolunteer(user, $event.target.value)"
+          >
+            <option value="">Not linked</option>
+            <option v-for="option in linkableVolunteers" :key="option.value" :value="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+          <span v-if="user.role === 'coordinator' && !user.volunteerId" class="form-text text-warning-emphasis">
+            Link this account so their planting days appear.
+          </span>
+        </template>
+      </InteractiveTable>
     </template>
   </div>
 </template>

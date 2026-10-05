@@ -47,6 +47,12 @@ const routes = [
     meta: { title: 'Manage planting days', requiresAuth: true, roles: ['coordinator', 'admin'] }
   },
   {
+    path: '/manage/volunteers',
+    name: 'roster',
+    component: () => import('@/views/manage/VolunteerRosterView.vue'),
+    meta: { title: 'Volunteer roster', requiresAuth: true, roles: ['coordinator', 'admin'] }
+  },
+  {
     path: '/admin',
     name: 'admin',
     component: () => import('@/views/admin/AdminDashboardView.vue'),

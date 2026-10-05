@@ -98,9 +98,14 @@ const ROLE_LABELS = {
     <section class="mb-5" aria-labelledby="accounts-heading">
       <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <h2 id="accounts-heading" class="h6 text-body-secondary mb-0">Accounts</h2>
-        <RouterLink class="btn btn-sm btn-outline-primary" :to="{ name: 'admin-users' }">
-          Manage accounts
-        </RouterLink>
+        <div class="d-flex flex-wrap gap-2">
+          <RouterLink class="btn btn-sm btn-outline-primary" :to="{ name: 'roster' }">
+            Volunteer roster
+          </RouterLink>
+          <RouterLink class="btn btn-sm btn-outline-primary" :to="{ name: 'admin-users' }">
+            Manage accounts
+          </RouterLink>
+        </div>
       </div>
 
       <BaseAlert v-if="admin.error" variant="danger" title="Could not load accounts">
