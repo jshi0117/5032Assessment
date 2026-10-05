@@ -156,6 +156,11 @@ const unavailableLabel = computed(() => {
               {{ event.site.suburb }} {{ event.site.postcode }} · {{ event.site.council }}
             </p>
             <p class="small mb-2">{{ event.site.meetingPoint }}</p>
+            <p class="small mb-2">
+              <RouterLink :to="{ name: 'map', query: { site: event.site.id } }">
+                View on map and get directions
+              </RouterLink>
+            </p>
             <p class="small text-body-secondary mb-0">
               Tree canopy cover in {{ event.site.suburb }}: {{ event.site.canopyCover }}%
             </p>

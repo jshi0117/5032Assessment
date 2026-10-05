@@ -26,6 +26,7 @@ const auth = useAuthStore()
 const links = computed(() => [
   { name: 'home', label: 'Home', to: { name: 'home' } },
   { name: 'events', label: 'Planting Events', to: { name: 'events' } },
+  { name: 'map', label: 'Map', to: { name: 'map' } },
   { name: 'volunteer', label: 'Volunteer', to: { name: 'volunteer' } },
   ...(auth.isCoordinator ? [{ name: 'manage', label: 'Manage', to: { name: 'manage' } }] : []),
   ...(auth.isAdmin ? [{ name: 'admin', label: 'Admin', to: { name: 'admin' } }] : [])

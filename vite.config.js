@@ -39,18 +39,26 @@ function contentSecurityPolicy(isDev) {
     // script equivalent — a style cannot execute.
     'style-src': ["'self'", "'unsafe-inline'"],
 
-    'img-src': ["'self'", 'data:'],
+    // blob: is how mapbox-gl hands decoded map images to the page.
+    'img-src': ["'self'", 'data:', 'blob:'],
     'font-src': ["'self'", 'data:'],
 
     // Where the application is allowed to talk to. Firebase Authentication and
-    // Firestore, and nothing else — an injected script cannot post what it
-    // finds to an address that is not on this list.
+    // Firestore, and Mapbox for map tiles, geocoding and directions (BR E.2) —
+    // nothing else, so an injected script cannot post what it finds to an
+    // address that is not on this list.
     'connect-src': [
       "'self'",
       'https://identitytoolkit.googleapis.com',
       'https://securetoken.googleapis.com',
-      'https://firestore.googleapis.com'
+      'https://firestore.googleapis.com',
+      'https://api.mapbox.com',
+      'https://events.mapbox.com'
     ],
+
+    // mapbox-gl draws in a Web Worker. The CSP build of the library loads it
+    // from a file this site serves, so no blob: worker has to be allowed.
+    'worker-src': ["'self'"],
 
     // Nothing here is embedded, and nothing here embeds anything.
     'object-src': ["'none'"],

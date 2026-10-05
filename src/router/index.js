@@ -33,6 +33,13 @@ const routes = [
     meta: { title: 'Event details' }
   },
   {
+    path: '/map',
+    name: 'map',
+    // Lazily loaded: mapbox-gl is large, and only this page needs it.
+    component: () => import('@/views/MapView.vue'),
+    meta: { title: 'Planting map' }
+  },
+  {
     path: '/volunteer',
     name: 'volunteer',
     component: () => import('@/views/VolunteerSignupView.vue'),

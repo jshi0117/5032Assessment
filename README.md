@@ -33,3 +33,20 @@ All three tables support search across all columns, search within one column,
 sorting on any column and 10 rows per page. Each can export the rows that match
 its current search and sort, across all pages, as CSV or PDF
 (`src/utils/exporters.js`, PDF via jsPDF).
+
+## Planting map (BR E.2)
+
+`/map` uses Mapbox (mapbox-gl JS, Geocoding v6, Directions v5). Add a public
+token to `.env.local` as `VITE_MAPBOX_TOKEN=pk.…` and restrict it to the
+site's URLs in the Mapbox account.
+
+1. **Geospatial site search** — start from the device location or a searched
+   address (autocomplete), then filter sites by suburb, species, month,
+   family-friendliness and distance radius; results are sorted nearest first and
+   the list and map markers stay in sync.
+2. **Trip planning** — walking, cycling and driving routes compared side by
+   side, the chosen route drawn on the map with turn-by-turn steps, and a
+   "leave by" time to arrive before the planting day starts. Public transport
+   links out to Google Maps.
+
+Planting days link to the map with `?site=<id>`.
