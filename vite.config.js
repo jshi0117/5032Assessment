@@ -1,6 +1,6 @@
 import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
 
@@ -25,7 +25,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
  * have what it needs — Vite's HMR socket, its injected styles — without those
  * allowances shipping to production.
  */
-function contentSecurityPolicy(isDev) {
+function contentSecurityPolicy(isDev, projectId) {
   const directives = {
     'default-src': ["'self'"],
 
@@ -53,7 +53,9 @@ function contentSecurityPolicy(isDev) {
       'https://securetoken.googleapis.com',
       'https://firestore.googleapis.com',
       'https://api.mapbox.com',
-      'https://events.mapbox.com'
+      'https://events.mapbox.com',
+      // This project's callable Cloud Functions (BR E.1), and no one else's.
+      `https://australia-southeast1-${projectId}.cloudfunctions.net`
     ],
 
     // mapbox-gl draws in a Web Worker. The CSP build of the library loads it
@@ -73,7 +75,8 @@ function contentSecurityPolicy(isDev) {
   if (isDev) {
     // Vite's dev client opens a WebSocket for hot reload and serves modules
     // over http; neither exists in the built output.
-    directives['connect-src'].push('ws:', 'wss:', 'http://localhost:*')
+    // http://127.0.0.1:* covers the Firebase emulators when they are in use.
+    directives['connect-src'].push('ws:', 'wss:', 'http://localhost:*', 'http://127.0.0.1:*')
     directives['script-src'].push("'unsafe-inline'")
   }
 
@@ -83,11 +86,11 @@ function contentSecurityPolicy(isDev) {
 }
 
 /** Injects the policy as the first thing in <head>. */
-function cspPlugin() {
+function cspPlugin(projectId) {
   return {
     name: 'greenroots-csp',
     transformIndexHtml(html, context) {
-      const policy = contentSecurityPolicy(Boolean(context.server))
+      const policy = contentSecurityPolicy(Boolean(context.server), projectId)
       return {
         html,
         tags: [
@@ -103,27 +106,31 @@ function cspPlugin() {
 }
 
 // https://vite.dev/config/
-export default defineConfig({
-  /*
-   * Root by default, which suits Cloudflare Pages, Netlify and Firebase
-   * Hosting. GitHub Pages serves a project site from a sub-path, so build it
-   * with the repository name:
-   *
-   *   VITE_BASE=/5032Assessment/ npm run build
-   *
-   * Without this the built asset URLs point at the domain root and the
-   * deployed page loads blank.
-   */
-  base: process.env.VITE_BASE || '/',
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, process.cwd(), 'VITE_')
 
-  plugins: [
-    vue(),
-    vueDevTools(),
-    cspPlugin(),
-  ],
-  resolve: {
-    alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+  return {
+    /*
+     * Root by default, which suits Cloudflare Pages, Netlify and Firebase
+     * Hosting. GitHub Pages serves a project site from a sub-path, so build it
+     * with the repository name:
+     *
+     *   VITE_BASE=/5032Assessment/ npm run build
+     *
+     * Without this the built asset URLs point at the domain root and the
+     * deployed page loads blank.
+     */
+    base: process.env.VITE_BASE || '/',
+
+    plugins: [
+      vue(),
+      vueDevTools(),
+      cspPlugin(env.VITE_FIREBASE_PROJECT_ID),
+    ],
+    resolve: {
+      alias: {
+        '@': fileURLToPath(new URL('./src', import.meta.url)),
+      },
     },
-  },
+  }
 })

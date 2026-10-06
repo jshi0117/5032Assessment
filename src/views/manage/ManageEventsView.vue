@@ -117,7 +117,7 @@ function signUpsFor(event) {
     note.textContent =
       `No sign-ups have been taken on this device yet. The ${event.registered} shown ` +
       'above come from the existing volunteer records.'
-    box.append(note)
+    box.append(note, emailLink(event))
     return box
   }
 
@@ -135,8 +135,18 @@ function signUpsFor(event) {
     item.append(who, places)
     list.append(item)
   }
-  box.append(list)
+  box.append(list, emailLink(event))
   return box
+}
+
+/** "Email volunteers about this day" — opens the composer with it chosen. */
+function emailLink(event) {
+  const link = document.createElement('a')
+  link.href = router.resolve({ name: 'compose-email', query: { event: event.id } }).href
+  link.dataset.route = ''
+  link.className = 'd-inline-block mt-2'
+  link.textContent = 'Email volunteers about this planting day'
+  return link
 }
 
 /**
@@ -204,9 +214,14 @@ const totals = computed(() => {
     </p>
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
       <h1 class="h3 mb-0">Manage planting days</h1>
-      <RouterLink class="btn btn-sm btn-outline-primary" :to="{ name: 'roster' }">
-        Volunteer roster
-      </RouterLink>
+      <div class="d-flex flex-wrap gap-2">
+        <RouterLink class="btn btn-sm btn-outline-primary" :to="{ name: 'roster' }">
+          Volunteer roster
+        </RouterLink>
+        <RouterLink class="btn btn-sm btn-primary" :to="{ name: 'compose-email' }">
+          Email volunteers
+        </RouterLink>
+      </div>
     </div>
 
     <BaseAlert v-if="store.error" variant="danger" title="Could not load planting days">

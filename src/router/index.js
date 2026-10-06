@@ -60,6 +60,12 @@ const routes = [
     meta: { title: 'Volunteer roster', requiresAuth: true, roles: ['coordinator', 'admin'] }
   },
   {
+    path: '/manage/email',
+    name: 'compose-email',
+    component: () => import('@/views/manage/ComposeEmailView.vue'),
+    meta: { title: 'Email volunteers', requiresAuth: true, roles: ['coordinator', 'admin'] }
+  },
+  {
     path: '/admin',
     name: 'admin',
     component: () => import('@/views/admin/AdminDashboardView.vue'),

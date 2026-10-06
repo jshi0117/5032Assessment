@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth'
-import { getFirestore } from 'firebase/firestore'
+import { getAuth, browserLocalPersistence, connectAuthEmulator, setPersistence } from 'firebase/auth'
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
+import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 
 /**
  * The single Firebase entry point (BR C.1 / C.4).
@@ -42,6 +43,26 @@ if (missing.length) {
 export const app = initializeApp(config)
 export const auth = getAuth(app)
 export const db = getFirestore(app)
+
+/**
+ * Cloud Functions (BR E.1), in the same region they are deployed to —
+ * a callable in a different region is simply not found.
+ */
+export const FUNCTIONS_REGION = 'australia-southeast1'
+export const functions = getFunctions(app, FUNCTIONS_REGION)
+
+/**
+ * Local emulators, opted into with VITE_USE_EMULATORS=true in .env.local.
+ * Development only: a production build never talks to localhost, whatever
+ * the variable says.
+ */
+export const usingEmulators = import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true'
+
+if (usingEmulators) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  connectFirestoreEmulator(db, '127.0.0.1', 8080)
+  connectFunctionsEmulator(functions, '127.0.0.1', 5001)
+}
 
 /**
  * Keeps the session in localStorage so a refresh does not sign the user out.

@@ -215,5 +215,13 @@ service cloud.firestore {
         && request.resource.data.sum
              == previousSum() - previousScore(eventId) + nextScore(eventId);
     }
+
+    // ---- mailQuota (BR D.2 / E.1) --------------------------------------
+    // Per-account email allowance, kept by the Cloud Functions with the Admin
+    // SDK (which bypasses these rules). Stated explicitly rather than left to
+    // the default deny: no client may read or reset its own counter.
+    match /mailQuota/{doc} {
+      allow read, write: if false;
+    }
   }
 }

@@ -50,3 +50,31 @@ site's URLs in the Mapbox account.
    links out to Google Maps.
 
 Planting days link to the map with `?site=<id>`.
+
+## Email and Cloud Functions (BR D.2 / E.1)
+
+Email is sent by Firebase Cloud Functions (`functions/`, region
+`australia-southeast1`) through SendGrid, so the API key never reaches the
+browser.
+
+- **`emailEventDetails`** — "Email me these details" on a planting day sends
+  the signed-in user a PDF briefing and an `.ics` calendar invite, to their own
+  address only.
+- **`sendComposedEmail`** — coordinators and administrators compose an email at
+  `/manage/email`: recipients, subject, message, the planting day's briefing
+  and invite, and uploaded files (PDF/PNG/JPG/CSV/TXT/ICS, 4 MB). Each
+  recipient gets a separate copy; replies go to the coordinator.
+
+Both check sign-in and role on the server, validate every field, and limit how
+many emails an account can send per hour (`mailQuota` in Firestore).
+
+### Set up and deploy
+
+```sh
+npx firebase login
+npx firebase functions:secrets:set SENDGRID_API_KEY   # paste the SendGrid key
+cp functions/.env.example functions/.env.project-5032assessment   # set MAIL_FROM, APP_URL
+npx firebase deploy --only functions
+```
+
+Functions need the Firebase Blaze plan. Server tests: `npm --prefix functions test`.

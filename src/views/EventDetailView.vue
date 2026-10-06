@@ -5,6 +5,7 @@ import { storeToRefs } from 'pinia'
 
 import { useEventStore } from '@/stores/eventStore'
 import RatingWidget from '@/components/ratings/RatingWidget.vue'
+import EmailDetailsButton from '@/components/email/EmailDetailsButton.vue'
 import {
   formatDateLong, formatTimeRange, formatSpots,
   formatStatus, statusVariant, formatActivity
@@ -164,6 +165,13 @@ const unavailableLabel = computed(() => {
             <p class="small text-body-secondary mb-0">
               Tree canopy cover in {{ event.site.suburb }}: {{ event.site.canopyCover }}%
             </p>
+          </div>
+        </div>
+
+        <div v-if="!event.isPast && event.status !== 'cancelled'" class="card mb-3">
+          <div class="card-body">
+            <h2 class="h6 mb-2">Take it with you</h2>
+            <EmailDetailsButton :event-id="event.id" />
           </div>
         </div>
 
