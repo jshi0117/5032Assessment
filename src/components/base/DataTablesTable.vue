@@ -250,7 +250,9 @@ defineExpose({ dt })
 
   :deep(thead tr:nth-child(2) td),
   :deep(thead tr:nth-child(2) th) {
-    min-width: 6.5rem;
+    // Room for "Search" between ColumnControl's icons, which sit inside the
+    // input's padding on both sides.
+    min-width: 8rem;
   }
 }
 </style>

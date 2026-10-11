@@ -320,6 +320,7 @@ function startAnother() {
             name="confirmEmail"
             type="email"
             required
+            autocomplete="email"
             v-bind="form.fieldProps('confirmEmail')"
           />
 

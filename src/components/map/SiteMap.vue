@@ -67,6 +67,10 @@ function markerLabel(result) {
 function createMarkerElement(result) {
   const button = document.createElement('button')
   button.type = 'button'
+  // Stated explicitly because mapbox-gl gives any marker element without a
+  // role `role="img"` — which would announce this button as a picture and
+  // make its aria-pressed state invalid.
+  button.setAttribute('role', 'button')
   button.className = 'gr-marker'
   button.innerHTML = '<span class="gr-marker__pin" aria-hidden="true"></span>'
   button.addEventListener('click', (e) => {

@@ -35,7 +35,7 @@ const columns = [
           </p>
           <ul class="list-unstyled small mb-0">
             <li v-for="link in column.links" :key="link.label" class="mb-1">
-              <RouterLink class="link-secondary text-decoration-none" :to="link.to">
+              <RouterLink class="gr-footer__link text-decoration-none" :to="link.to">
                 {{ link.label }}
               </RouterLink>
             </li>
@@ -54,6 +54,19 @@ const columns = [
 
 <style scoped lang="scss">
 @use '@/assets/styles/breakpoints' as bp;
+
+// Bootstrap's .link-secondary (#6c757d) is 4.44:1 on the footer's #f8f9fa —
+// just under the 4.5:1 that WCAG 1.4.3 asks of 14px text. The body's own
+// secondary colour, which the footer's other text already uses, clears it.
+.gr-footer__link {
+  color: var(--bs-secondary-color);
+
+  &:hover,
+  &:focus-visible {
+    color: var(--gr-green-900);
+    text-decoration: underline !important;
+  }
+}
 
 .gr-footer__inner {
   width: 100%;

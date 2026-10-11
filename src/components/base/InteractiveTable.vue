@@ -335,7 +335,7 @@ defineExpose({ filteredRows: sorted })
                   class="form-control form-control-sm"
                   type="search"
                   autocomplete="off"
-                  :placeholder="`Search ${column.label.toLowerCase()}`"
+                  placeholder="Search"
                 />
               </template>
             </td>
