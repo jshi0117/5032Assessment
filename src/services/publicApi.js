@@ -4,8 +4,12 @@ import { FUNCTIONS_REGION } from './firebase'
  * The public REST API (BR F.1 — API access), as the developer page uses it.
  * The API itself is the `api` Cloud Function — see functions/src/api/.
  */
-export const API_BASE =
-  `https://${FUNCTIONS_REGION}-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/api/v1`
+export const API_BASE = import.meta.env.DEV
+  ? // The Vite dev server has no rewrites, so development calls the function directly.
+    `https://${FUNCTIONS_REGION}-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/api/v1`
+  : // Deployed, Firebase Hosting rewrites /api/** to the function (firebase.json),
+    // so the API lives on the site's own address.
+    `${window.location.origin}/api/v1`
 
 /**
  * Calls the API and returns everything the "Try it" panel shows: status,

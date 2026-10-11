@@ -11,6 +11,23 @@ npm install
 npm run dev
 ```
 
+## Live site (BR D.4)
+
+**https://project-5032assessment.web.app** — Firebase Hosting, with the Cloud
+Functions in `australia-southeast1`.
+
+```sh
+npx firebase deploy --only hosting,functions
+```
+
+`firebase.json` builds the app first, serves `dist/` with an SPA fallback,
+rewrites `/api/**` to the API function, caches hashed assets for a year and
+`index.html` never, and sends security headers (no framing, nosniff, a
+referrer policy, and geolocation for this site only; HSTS is added by Firebase).
+Build-time configuration comes from `.env.local` (`VITE_FIREBASE_*`,
+`VITE_MAPBOX_TOKEN`); the functions read `functions/.env.project-5032assessment`
+(`MAIL_FROM`, `APP_URL`) and the `SENDGRID_API_KEY` secret.
+
 ## Production build
 
 ```sh
