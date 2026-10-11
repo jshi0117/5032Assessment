@@ -35,6 +35,7 @@ const MESSAGES = {
   'functions/resource-exhausted': null, // the server's message says when to retry
   'functions/invalid-argument': null, // the server's message names the field
   'functions/not-found': null,
+  'functions/failed-precondition': null, // e.g. "verify your email first" — the server says which
   'functions/unavailable': 'The email service could not be reached. Try again in a few minutes.',
   'functions/deadline-exceeded': 'Sending took too long. Check your inbox before trying again.',
   'functions/internal': 'Something went wrong on the server. Please try again.'

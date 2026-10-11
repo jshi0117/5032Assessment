@@ -153,6 +153,7 @@ const removeFile = (file) => { files.value = files.value.filter((f) => f !== fil
 
 const problems = computed(() => {
   const list = []
+  if (auth.needsVerification) list.push('Verify your email address (see the banner at the top of the page).')
   if (!form.to.length) list.push('Add at least one recipient.')
   if (invalidRecipients.value.length) list.push(`Fix ${invalidRecipients.value.length === 1 ? 'the address' : 'the addresses'} marked in red.`)
   if (form.to.length > LIMITS.recipients) list.push(`Send to ${LIMITS.recipients} people or fewer at a time.`)
@@ -427,7 +428,7 @@ async function send() {
           <label class="form-check-label" for="compose-copy">Send me a copy</label>
         </div>
 
-        <div v-if="problems.length && (form.to.length || form.subject || form.message)" class="small text-body-secondary mb-2" id="compose-problems">
+        <div v-if="problems.length && (auth.needsVerification || form.to.length || form.subject || form.message)" class="small text-body-secondary mb-2" id="compose-problems">
           <p class="mb-1">Before you can send:</p>
           <ul class="mb-0">
             <li v-for="problem in problems" :key="problem">{{ problem }}</li>

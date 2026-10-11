@@ -1,11 +1,12 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/authStore'
 import { useForm } from '@/composables/useForm'
 import { describeAuthError } from '@/services/authService'
 import AuthCard from '@/components/auth/AuthCard.vue'
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton.vue'
 import PasswordMeter from '@/components/auth/PasswordMeter.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
@@ -37,6 +38,9 @@ const redirect = computed(() => {
     ? target
     : '/'
 })
+
+const googleError = ref(null)
+const afterGoogle = () => router.replace(redirect.value)
 
 const form = useForm({
   initialValues: {
@@ -87,6 +91,16 @@ const form = useForm({
     <BaseAlert v-if="form.submitError.value" variant="danger" title="Could not create your account">
       {{ form.submitError.value }}
     </BaseAlert>
+    <BaseAlert v-if="googleError" variant="danger" title="Could not sign you up with Google">
+      {{ googleError }}
+    </BaseAlert>
+
+    <GoogleSignInButton label="Sign up with Google" @signed-in="afterGoogle" @error="googleError = $event" />
+    <p class="form-text text-center mt-1 mb-0">
+      Uses your Google name and email. You join as a volunteer; no password to remember.
+    </p>
+
+    <p class="gr-auth-divider" aria-hidden="true"><span>or create a password</span></p>
 
     <form novalidate @submit.prevent="form.handleSubmit">
       <div class="row g-0 gx-3">

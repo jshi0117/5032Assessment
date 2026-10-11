@@ -78,3 +78,35 @@ npx firebase deploy --only functions
 ```
 
 Functions need the Firebase Blaze plan. Server tests: `npm --prefix functions test`.
+
+## Admin insights — interactive charts (BR F.1)
+
+`/admin` has three Chart.js charts (`src/components/charts/`): places filled
+vs open by month, average rating by site (select a bar to open the site on the
+map), and volunteer hours by suburb. One period filter (All / Past / Upcoming)
+scopes the planting-day charts. Each chart is a captioned figure with a
+summary label and a "Show as table" view, and respects reduced motion. The
+palette was checked with a colour-vision validator.
+
+## Public API (BR F.1)
+
+A read-only REST API, the `api` Cloud Function (`functions/src/api/`):
+
+```
+GET /api/v1/events?suburb=&site=&activity=&from=&to=&upcoming=&familyFriendly=&limit=&offset=
+GET /api/v1/events/{id}
+GET /api/v1/sites?suburb=
+GET /api/v1/sites/{id}
+GET /api/v1/openapi.json
+```
+
+Paged `{ data, meta, links }` responses, consistent `{ error }` bodies with
+400/404/405/429, 60 requests a minute per client (`X-RateLimit-*`,
+`Retry-After`), ETag / `If-None-Match` → 304, open CORS. Documentation with a
+live "Try it" panel is at `/developers`. Tests: `npm --prefix functions test`.
+
+## Sign-in (BR D.1)
+
+Email and password with **email verification** (a banner prompts unverified
+accounts; the email Cloud Functions refuse them), or **Continue with Google**
+(enable the Google provider under Firebase Authentication → Sign-in method).

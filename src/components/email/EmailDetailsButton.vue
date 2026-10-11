@@ -39,7 +39,11 @@ async function send() {
 
 <template>
   <div class="gr-email-details">
-    <template v-if="auth.isAuthenticated">
+    <p v-if="auth.isAuthenticated && auth.needsVerification" class="small mb-0">
+      Verify your email address to have the briefing and calendar invite sent to you — the link is in
+      the email we sent to {{ auth.account?.email }}.
+    </p>
+    <template v-else-if="auth.isAuthenticated">
       <button
         type="button"
         class="btn btn-outline-primary btn-sm"

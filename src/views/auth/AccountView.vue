@@ -1,5 +1,6 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/authStore'
 import { useForm } from '@/composables/useForm'
@@ -145,12 +146,57 @@ const form = useForm({
     form.reset()
   }
 })
+
+/* ---------- Sign-in methods and verification (BR D.1) ---------- */
+
+const route = useRoute()
+const router = useRouter()
+const justVerified = ref(false)
+
+const signInMethods = computed(() => {
+  const providers = auth.account?.providers ?? []
+  return [
+    providers.includes('google.com') && 'Google',
+    providers.includes('password') && 'Email and password'
+  ].filter(Boolean).join(' and ') || 'Email and password'
+})
+
+// The link in the verification email lands here with ?verified=1. Firebase has
+// already marked the address verified; this picks that up so the banner goes
+// at once, then tidies the address bar.
+onMounted(async () => {
+  if (route.query.verified !== '1') return
+  try {
+    justVerified.value = await auth.refreshVerification()
+  } finally {
+    router.replace({ query: {} })
+  }
+})
 </script>
 
 <template>
   <div class="container gr-account-page">
     <h1 class="h3 mb-1">Your account</h1>
     <p class="text-body-secondary mb-4">Manage how you sign in to GreenRoots Melbourne.</p>
+
+    <BaseAlert v-if="justVerified" variant="success" title="Email address verified">
+      Thanks — every feature is now open to you.
+    </BaseAlert>
+
+    <dl class="gr-account-facts small mb-4">
+      <div>
+        <dt>Email</dt>
+        <dd>
+          {{ auth.account?.email }}
+          <span v-if="auth.account?.emailVerified" class="badge text-bg-success ms-1">Verified</span>
+          <span v-else class="badge text-bg-warning ms-1">Not verified</span>
+        </dd>
+      </div>
+      <div>
+        <dt>Sign in with</dt>
+        <dd>{{ signInMethods }}</dd>
+      </div>
+    </dl>
 
     <div class="row g-4">
       <div class="col-lg-5">
@@ -226,7 +272,17 @@ const form = useForm({
       </div>
 
       <div class="col-lg-7">
-        <section class="card" aria-labelledby="password-heading">
+        <section v-if="!auth.account?.hasPassword" class="card" aria-labelledby="password-heading">
+          <div class="card-body">
+            <h2 id="password-heading" class="h6 mb-2">Password</h2>
+            <p class="mb-0 small">
+              You sign in with Google, so there is no GreenRoots password to change. Your password and
+              two-step verification are managed in your Google account.
+            </p>
+          </div>
+        </section>
+
+        <section v-else class="card" aria-labelledby="password-heading">
           <div class="card-body">
             <h2 id="password-heading" class="h6 mb-3">Change your password</h2>
 
@@ -291,5 +347,20 @@ const form = useForm({
 <style scoped>
 .gr-account-page {
   padding-block: 2rem 4rem;
+}
+
+.gr-account-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 2rem;
+}
+
+.gr-account-facts dt {
+  font-weight: 400;
+  color: var(--bs-secondary-color);
+}
+
+.gr-account-facts dd {
+  margin: 0;
 }
 </style>

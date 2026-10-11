@@ -1,7 +1,13 @@
 import {
   EmailAuthProvider,
+  GoogleAuthProvider,
   createUserWithEmailAndPassword,
+  getRedirectResult,
   onAuthStateChanged,
+  reload,
+  sendEmailVerification,
+  signInWithPopup,
+  signInWithRedirect,
   reauthenticateWithCredential,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
@@ -61,8 +67,20 @@ const MESSAGES = {
     'Email sign-in is not enabled for this project. Enable it in the Firebase console.',
   'auth/unauthorized-domain':
     'This site is not on the project’s authorised domains list.',
-  'permission-denied': 'You do not have permission to do that.'
+  'permission-denied': 'You do not have permission to do that.',
+  'auth/popup-blocked':
+    'Your browser blocked the Google sign-in window. Allow pop-ups for this site, or try again.',
+  'auth/account-exists-with-different-credential':
+    'That email address already has a GreenRoots password. Sign in with your email and password instead.',
+  'auth/user-token-expired': 'Your session has expired. Please sign in again.'
 }
+
+/**
+ * Google sign-in errors that are the user changing their mind, not failures.
+ * Shown as nothing at all rather than as an error banner.
+ */
+export const isCancelledSignIn = (err) =>
+  ['auth/popup-closed-by-user', 'auth/cancelled-popup-request', 'auth/user-cancelled'].includes(err?.code)
 
 /**
  * `overrides` re-words a code for a screen where the shared wording would be
@@ -80,13 +98,30 @@ export function describeAuthError(err, overrides = {}) {
 /** Only the fields the app reads — never the whole Firebase user object. */
 function toAccount(user) {
   if (!user) return null
+  const providers = (user.providerData ?? []).map((p) => p.providerId)
   return {
     uid: user.uid,
     email: user.email,
     displayName: user.displayName ?? null,
-    emailVerified: user.emailVerified
+    emailVerified: user.emailVerified,
+    // 'password', 'google.com' — which ways this account can sign in. The
+    // account page uses it: a Google-only account has no password to change.
+    providers,
+    hasPassword: providers.includes('password')
   }
 }
+
+/**
+ * Where the link in the verification email returns to. The account page reads
+ * `?verified=1` and refreshes the account, so the banner clears on arrival.
+ * Built from the current origin, so it works locally and once deployed (the
+ * domain must be on Firebase Auth's authorised list, which localhost and the
+ * Firebase Hosting domains are by default).
+ */
+const verificationSettings = () => ({
+  url: `${window.location.origin}/account?verified=1`,
+  handleCodeInApp: false
+})
 
 function toProfile(uid, data) {
   return {
@@ -168,8 +203,19 @@ export async function registerUser({ firstName, lastName, email, password, subur
     createdAt: serverTimestamp()
   })
 
+  // Proves the address belongs to whoever registered it. A failure here must
+  // not undo a registration that has already succeeded: the account exists,
+  // and the email can be resent from the banner or the account page.
+  let verificationSent = true
+  try {
+    await sendEmailVerification(user, verificationSettings())
+  } catch {
+    verificationSent = false
+  }
+
   return {
-    account: toAccount({ ...user, displayName }),
+    verificationSent,
+    account: toAccount({ ...user, displayName, providerData: user.providerData }),
     profile: toProfile(user.uid, { ...clean, email: user.email, role: DEFAULT_ROLE })
   }
 }
@@ -178,6 +224,79 @@ export async function loginUser(email, password) {
   await persistenceReady
   const { user } = await signInWithEmailAndPassword(auth, sanitizeEmail(email), password)
   return { account: toAccount(user), profile: await fetchProfile(user.uid, { email: user.email }) }
+}
+
+/**
+ * "Continue with Google" (BR D.1).
+ *
+ * A pop-up keeps the page — and anything typed on it — where it is. Where the
+ * browser blocks pop-ups (common on phones and in strict privacy settings) it
+ * falls back to a full-page redirect, which returns to this site and is
+ * finished by `completeRedirectSignIn` below.
+ *
+ * Google has already verified the address, so these accounts arrive with
+ * `emailVerified: true` and never see the verification banner. A first sign-in
+ * creates the profile, as a volunteer, through the same path as any account
+ * missing one — the Firestore rules pin that role whatever the client sends.
+ */
+export async function signInWithGoogle() {
+  await persistenceReady
+  const provider = new GoogleAuthProvider()
+  // Always show the account chooser, so someone with two Google accounts (a
+  // personal and a university one, say) is never signed in with the wrong one.
+  provider.setCustomParameters({ prompt: 'select_account' })
+
+  let user
+  try {
+    ;({ user } = await signInWithPopup(auth, provider))
+  } catch (err) {
+    if (err?.code === 'auth/popup-blocked') {
+      await signInWithRedirect(auth, provider)
+      return null // the page is navigating away
+    }
+    throw err
+  }
+  return { account: toAccount(user), profile: await fetchProfile(user.uid, googleNames(user)) }
+}
+
+/** Surfaces the outcome — or the error — of a redirect sign-in on return. */
+export async function completeRedirectSignIn() {
+  const result = await getRedirectResult(auth)
+  return result?.user ? toAccount(result.user) : null
+}
+
+/** First and last name from a Google profile, trimmed to the profile limits. */
+function googleNames(user) {
+  const [first = '', ...rest] = (user.displayName ?? '').trim().split(/\s+/)
+  return {
+    firstName: sanitizeText(first, { maxLength: 40 }),
+    lastName: sanitizeText(rest.join(' '), { maxLength: 40 }),
+    email: user.email
+  }
+}
+
+/** Sends the verification email again, for the signed-in account. */
+export async function resendVerificationEmail() {
+  const user = auth.currentUser
+  if (!user) throw new Error('You need to be signed in to do that.')
+  if (user.emailVerified) return false
+  await sendEmailVerification(user, verificationSettings())
+  return true
+}
+
+/**
+ * Re-reads the account from Firebase after the link has been followed.
+ *
+ * `reload` updates `emailVerified` on the client; forcing a new ID token puts
+ * the `email_verified` claim into the token the Cloud Functions check — without
+ * it, the server would go on seeing an unverified account for up to an hour.
+ */
+export async function refreshAccount() {
+  const user = auth.currentUser
+  if (!user) return null
+  await reload(user)
+  if (user.emailVerified) await user.getIdToken(true)
+  return toAccount(user)
 }
 
 export async function logoutUser() {

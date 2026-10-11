@@ -237,3 +237,22 @@ body {
     &:disabled { opacity: 0.6; cursor: default; }
   }
 }
+
+// "or" between "Continue with Google" and the email form on the sign-in and
+// registration cards. Decorative only (aria-hidden): both options are
+// already announced by their own controls.
+.gr-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    border-top: 1px solid var(--bs-border-color);
+  }
+}

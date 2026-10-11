@@ -25,13 +25,15 @@ import vueDevTools from 'vite-plugin-vue-devtools'
  * have what it needs — Vite's HMR socket, its injected styles — without those
  * allowances shipping to production.
  */
-function contentSecurityPolicy(isDev, projectId) {
+function contentSecurityPolicy(isDev, projectId, authDomain) {
   const directives = {
     'default-src': ["'self'"],
 
     // No CDN: everything is bundled. Vue's runtime build compiles no templates
-    // at runtime, so 'unsafe-eval' is not needed even in development.
-    'script-src': ["'self'"],
+    // at runtime, so 'unsafe-eval' is not needed even in development. The one
+    // outside script is Google's, which Firebase Auth loads for "Continue with
+    // Google" (BR D.1).
+    'script-src': ["'self'", 'https://apis.google.com'],
 
     // Vue writes scoped styles into <style> tags, and `:style` bindings become
     // inline style attributes; both need 'unsafe-inline'. This is the one
@@ -62,9 +64,10 @@ function contentSecurityPolicy(isDev, projectId) {
     // from a file this site serves, so no blob: worker has to be allowed.
     'worker-src': ["'self'"],
 
-    // Nothing here is embedded, and nothing here embeds anything.
+    // Nothing is embedded except Firebase Auth's own hidden frame on the
+    // project's auth domain, which carries the Google sign-in result back.
     'object-src': ["'none'"],
-    'frame-src': ["'none'"],
+    'frame-src': [`https://${authDomain}`],
 
     // Stops an injected <base> tag from re-pointing every relative URL on the
     // page, and stops a form being retargeted at somebody else's server.
@@ -86,11 +89,11 @@ function contentSecurityPolicy(isDev, projectId) {
 }
 
 /** Injects the policy as the first thing in <head>. */
-function cspPlugin(projectId) {
+function cspPlugin(projectId, authDomain) {
   return {
     name: 'greenroots-csp',
     transformIndexHtml(html, context) {
-      const policy = contentSecurityPolicy(Boolean(context.server), projectId)
+      const policy = contentSecurityPolicy(Boolean(context.server), projectId, authDomain)
       return {
         html,
         tags: [
@@ -125,7 +128,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       vue(),
       vueDevTools(),
-      cspPlugin(env.VITE_FIREBASE_PROJECT_ID),
+      cspPlugin(env.VITE_FIREBASE_PROJECT_ID, env.VITE_FIREBASE_AUTH_DOMAIN),
     ],
     resolve: {
       alias: {

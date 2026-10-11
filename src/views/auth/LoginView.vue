@@ -1,11 +1,12 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { useAuthStore } from '@/stores/authStore'
 import { useForm } from '@/composables/useForm'
 import { describeAuthError } from '@/services/authService'
 import AuthCard from '@/components/auth/AuthCard.vue'
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton.vue'
 import BaseInput from '@/components/base/BaseInput.vue'
 import BaseButton from '@/components/base/BaseButton.vue'
 import BaseAlert from '@/components/base/BaseAlert.vue'
@@ -30,6 +31,9 @@ const redirect = computed(() => {
     ? target
     : '/'
 })
+
+const googleError = ref(null)
+const afterGoogle = () => router.replace(redirect.value)
 
 /** Set when a guard sent the visitor here, so the page can say why. */
 const wasRedirected = computed(() => typeof route.query.redirect === 'string')
@@ -60,6 +64,13 @@ const form = useForm({
     <BaseAlert v-if="form.submitError.value" variant="danger" title="Could not sign you in">
       {{ form.submitError.value }}
     </BaseAlert>
+    <BaseAlert v-if="googleError || auth.error" variant="danger" title="Could not sign you in with Google">
+      {{ googleError || auth.error }}
+    </BaseAlert>
+
+    <GoogleSignInButton @signed-in="afterGoogle" @error="googleError = $event" />
+
+    <p class="gr-auth-divider" aria-hidden="true"><span>or with your email</span></p>
 
     <form novalidate @submit.prevent="form.handleSubmit">
       <BaseInput

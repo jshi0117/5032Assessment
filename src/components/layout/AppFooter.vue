@@ -7,7 +7,14 @@ const columns = [
     links: [
       { label: 'Home', to: { name: 'home' } },
       { label: 'Planting Events', to: { name: 'events' } },
-      { label: 'Volunteer', to: { name: 'volunteer' } }
+      { label: 'Volunteer', to: { name: 'volunteer' } },
+      { label: 'Planting map', to: { name: 'map' } }
+    ]
+  },
+  {
+    heading: 'Developers',
+    links: [
+      { label: 'Public API', to: { name: 'developers' } }
     ]
   }
 ]

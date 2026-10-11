@@ -3,6 +3,7 @@ import { ref } from 'vue'
 
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
+import VerifyEmailBanner from '@/components/auth/VerifyEmailBanner.vue'
 import { useBreakpoint } from '@/composables/useBreakpoint'
 import { useEventStore } from '@/stores/eventStore'
 
@@ -34,6 +35,7 @@ async function resetDemoData() {
   <a class="skip-link" href="#main-content">Skip to main content</a>
 
   <AppHeader />
+  <VerifyEmailBanner />
 
   <main id="main-content" class="gr-page" tabindex="-1">
     <RouterView />

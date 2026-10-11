@@ -40,6 +40,12 @@ const routes = [
     meta: { title: 'Planting map' }
   },
   {
+    path: '/developers',
+    name: 'developers',
+    component: () => import('@/views/DevelopersView.vue'),
+    meta: { title: 'Developer API' }
+  },
+  {
     path: '/volunteer',
     name: 'volunteer',
     component: () => import('@/views/VolunteerSignupView.vue'),

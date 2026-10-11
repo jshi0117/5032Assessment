@@ -29,6 +29,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => account.value !== null)
 
+  /**
+   * Signed in with an address nobody has proved they own yet. Google accounts
+   * are verified by Google, so this is only ever true of password accounts.
+   */
+  const needsVerification = computed(() => Boolean(account.value && !account.value.emailVerified))
+
   /** Signed-out visitors have no role at all, which is not the same as a weak one. */
   const role = computed(() => (isAuthenticated.value ? (profile.value?.role ?? DEFAULT_ROLE) : null))
 
@@ -71,6 +77,12 @@ export const useAuthStore = defineStore('auth', () => {
   function init() {
     if (unsubscribe) return readyPromise
 
+    // A Google sign-in that fell back to a redirect finishes here, on the way
+    // back. Its errors are kept so the sign-in page can show them.
+    authService.completeRedirectSignIn().catch((err) => {
+      if (!authService.isCancelledSignIn(err)) error.value = authService.describeAuthError(err)
+    })
+
     unsubscribe = authService.observeAuth(async (next) => {
       account.value = next
       if (next) {
@@ -106,6 +118,24 @@ export const useAuthStore = defineStore('auth', () => {
     return nextProfile
   }
 
+  /** Google sign-in. Resolves null when it fell back to a full-page redirect. */
+  async function loginWithGoogle() {
+    const result = await authService.signInWithGoogle()
+    if (!result) return null
+    account.value = result.account
+    profile.value = result.profile
+    return result.profile
+  }
+
+  const resendVerification = () => authService.resendVerificationEmail()
+
+  /** Picks up a verification done in another tab or from the email link. */
+  async function refreshVerification() {
+    const next = await authService.refreshAccount()
+    if (next) account.value = next
+    return Boolean(next?.emailVerified)
+  }
+
   async function login(email, password) {
     const { account: nextAccount, profile: nextProfile } = await authService.loginUser(email, password)
     account.value = nextAccount
@@ -136,9 +166,10 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     account, profile, ready, error,
-    isAuthenticated, role, isAdmin, isCoordinator, volunteerId, displayName, initials,
+    isAuthenticated, needsVerification, role, isAdmin, isCoordinator, volunteerId, displayName, initials,
     ROLES,
     hasRole, init, whenReady,
-    register, login, logout, requestPasswordReset, changePassword, updateProfileDetails
+    register, login, loginWithGoogle, logout, requestPasswordReset, changePassword, updateProfileDetails,
+    resendVerification, refreshVerification
   }
 })

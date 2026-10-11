@@ -36,3 +36,14 @@ export function getPlantingDay(eventId) {
     isPast: event.date < MELBOURNE_TODAY.format(new Date())
   }
 }
+
+/**
+ * Every published planting day (no drafts) with its site, for the public API.
+ * Recomputed per call so "past" is always judged against today in Melbourne.
+ */
+export function listPublicEvents() {
+  return events.map((e) => getPlantingDay(e.id)).filter(Boolean)
+}
+
+/** Every planting site. */
+export const listSites = () => [...sitesById.values()]

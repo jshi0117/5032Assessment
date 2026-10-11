@@ -4,6 +4,7 @@ import { computed, onMounted } from 'vue'
 import { useEventStore } from '@/stores/eventStore'
 import { useAdminStore } from '@/stores/adminStore'
 import BaseAlert from '@/components/base/BaseAlert.vue'
+import DashboardCharts from '@/components/charts/DashboardCharts.vue'
 import { formatDateMedium, formatRating } from '@/utils/format'
 
 /**
@@ -94,6 +95,8 @@ const ROLE_LABELS = {
         </div>
       </div>
     </section>
+
+    <DashboardCharts />
 
     <section class="mb-5" aria-labelledby="accounts-heading">
       <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">

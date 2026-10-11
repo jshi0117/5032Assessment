@@ -1,10 +1,11 @@
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { setGlobalOptions } from 'firebase-functions'
-import { HttpsError, onCall } from 'firebase-functions/https'
+import { HttpsError, onCall, onRequest } from 'firebase-functions/https'
 import { logger } from 'firebase-functions'
 import { defineSecret, defineString } from 'firebase-functions/params'
 
+import { API_VERSION, createRateLimiter, handleApiRequest, tooManyRequests } from './api/handler.js'
 import { buildBriefingPdf } from './lib/briefingPdf.js'
 import { getPlantingDay } from './lib/events.js'
 import { escapeHtml, formatDateLong, formatTimeRange } from './lib/format.js'
@@ -59,10 +60,24 @@ const callableOptions = {
 
 /* ---------------------------------------------------------------- helpers */
 
+/**
+ * Signed in, with an address the user has proved is theirs.
+ *
+ * Verification matters here more than anywhere else in the app: without it,
+ * anyone could register with somebody else's address and have this server
+ * email them, or send volunteers mail with a stranger's address as Reply-To.
+ * Google accounts arrive verified; password accounts follow the emailed link.
+ */
 function requireSignedIn(request) {
   if (!request.auth) throw new HttpsError('unauthenticated', 'Sign in to send email.')
-  const email = request.auth.token.email
+  const { email, email_verified: verified } = request.auth.token
   if (!email) throw new HttpsError('failed-precondition', 'Your account has no email address.')
+  if (!verified) {
+    throw new HttpsError(
+      'failed-precondition',
+      'Verify your email address first — use the link we emailed you, or resend it from the banner at the top of the page.'
+    )
+  }
   return { uid: request.auth.uid, email }
 }
 
@@ -254,6 +269,67 @@ export const sendComposedEmail = onCall({ ...callableOptions, memory: '1GiB' }, 
   logger.info('Composed email sent', { uid, recipients: recipients.length, eventId: day?.id ?? null })
   return { recipients: recipients.length, attachments: attachments.map((a) => a.filename) }
 })
+
+/* -------------------------------------------------------------------- api */
+
+const takeRequest = createRateLimiter({ limit: 60, windowMs: 60_000 })
+
+/**
+ * Live rating totals, read from Firestore at most once a minute per instance.
+ * The API is read far more often than anyone rates a planting day.
+ */
+let statsCache = { at: 0, value: {} }
+async function ratingStats() {
+  if (Date.now() - statsCache.at < 60_000) return statsCache.value
+  const snapshot = await getFirestore().collection('eventStats').get()
+  const value = Object.fromEntries(snapshot.docs.map((d) => [d.id, { count: d.get('count') ?? 0, sum: d.get('sum') ?? 0 }]))
+  statsCache = { at: Date.now(), value }
+  return value
+}
+
+/**
+ * The public REST API (BR F.1 — API access): GET /api/v1/events,
+ * /api/v1/events/{id}, /api/v1/sites, /api/v1/sites/{id}, /api/v1/openapi.json.
+ *
+ * An HTTP function rather than a callable: it is meant for any client — curl,
+ * a spreadsheet, another website — not only this app's SDK. It needs no
+ * secrets, only public data, and a small memory size keeps it cheap.
+ */
+export const api = onRequest(
+  { invoker: 'public', memory: '256MiB', timeoutSeconds: 10, maxInstances: 3, cors: false },
+  async (req, res) => {
+    // Reached as …cloudfunctions.net/api/v1/… (the function name is not part
+    // of req.path) or through a Hosting rewrite as /api/v1/… (it is).
+    const path = req.path.replace(/^\/api(?=\/|$)/, '') || '/'
+    const host = req.get('x-forwarded-host') || req.get('host')
+    const baseUrl = `https://${host}/api/${API_VERSION}`
+
+    const send = ({ status, headers, body }) => {
+      res.set(headers).status(status).send(body)
+    }
+
+    if (req.method !== 'OPTIONS') {
+      const limit = takeRequest(req.ip)
+      res.set(limit.headers)
+      if (!limit.allowed) return send(tooManyRequests(limit.headers))
+    }
+
+    try {
+      const stats = await ratingStats().catch((err) => {
+        // Ratings are a bonus: serve the seed figures rather than fail.
+        logger.warn('API could not read rating stats', { message: err.message })
+        return {}
+      })
+      send(handleApiRequest(
+        { method: req.method, path, query: req.query, headers: req.headers, baseUrl },
+        { stats }
+      ))
+    } catch (err) {
+      logger.error('API request failed', { path, message: err.message })
+      res.status(500).json({ error: { status: 500, code: 'internal', message: 'Something went wrong. Please try again.' } })
+    }
+  }
+)
 
 /** "aarti.d@example.com" → "a***@example.com" — enough to recognise, not to harvest. */
 function maskEmail(address) {
