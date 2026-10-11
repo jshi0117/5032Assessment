@@ -158,7 +158,15 @@ const fetchExample = computed(() =>
                 <code>{{ endpoint.path }}</code>
               </h3>
               <p class="small mb-2">{{ endpoint.summary }}</p>
-              <div v-if="endpoint.params.length" class="table-responsive">
+              <!-- Scrolls sideways on a narrow screen, so it is focusable:
+                   keyboard users can then scroll it with the arrow keys. -->
+              <div
+                v-if="endpoint.params.length"
+                class="table-responsive"
+                tabindex="0"
+                role="region"
+                :aria-label="`Parameters for ${endpoint.path}`"
+              >
                 <table class="table table-sm small mb-0">
                   <caption class="visually-hidden">Query parameters for {{ endpoint.path }}</caption>
                   <thead>

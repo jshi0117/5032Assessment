@@ -42,17 +42,13 @@ export const useEventStore = defineStore('events', () => {
     loading.value = true
     error.value = null
     try {
-      // Ratings are public, so this read is not behind a sign-in. A failure
-      // here must not take the planting days down with it: an event list with
-      // no averages is still useful, an empty page is not.
-      const stats = await ratingService.listStats().catch((err) => {
-        ratingError.value = err?.message ?? 'Ratings could not be loaded.'
-        return {}
-      })
-      ratingStats.value = stats
-
+      // The planting days are on this device already, so they are shown at
+      // once; the live rating totals come from Firestore and are folded in
+      // when they arrive. Waiting for the network first left every page on
+      // "Loading…" for a second or two on a cold start — long enough for a
+      // crawler, or a person, to see no content at all.
       const [nextEvents, nextSites] = await Promise.all([
-        eventService.listEvents(stats),
+        eventService.listEvents(ratingStats.value),
         eventService.listSites()
       ])
       events.value = nextEvents
@@ -62,6 +58,23 @@ export const useEventStore = defineStore('events', () => {
       error.value = err.message ?? 'Planting events could not be loaded.'
     } finally {
       loading.value = false
+    }
+    if (loaded.value) refreshRatings()
+  }
+
+  /**
+   * Fetches the live rating totals and re-hydrates the events with them.
+   * Ratings are public, so this read needs no sign-in, and a failure here
+   * leaves the planting days showing their seed averages rather than nothing.
+   */
+  async function refreshRatings() {
+    try {
+      const stats = await ratingService.listStats()
+      ratingStats.value = stats
+      ratingError.value = null
+      events.value = await eventService.listEvents(stats)
+    } catch (err) {
+      ratingError.value = err?.message ?? 'Ratings could not be loaded.'
     }
   }
 

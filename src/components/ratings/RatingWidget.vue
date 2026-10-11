@@ -118,7 +118,7 @@ async function choose(score) {
 
       <template v-if="event.ratingCount">
         <p class="mb-1">
-          <span class="h4 gr-rating__stars" aria-hidden="true">
+          <span class="fs-4 lh-1 gr-rating__stars" aria-hidden="true">
             {{ '★'.repeat(starsFor(event.averageRating)).padEnd(5, '☆') }}
           </span>
           <span class="ms-2 align-middle">{{ formatRating(event.averageRating) }} / 5</span>

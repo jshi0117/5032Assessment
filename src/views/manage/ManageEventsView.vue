@@ -244,10 +244,10 @@ const totals = computed(() => {
           { label: 'Average rating', value: totals.averageRating ? formatRating(totals.averageRating) : '—' }
         ]" :key="stat.label" class="col-6 col-lg">
           <div class="card h-100">
-            <div class="card-body py-3">
-              <p class="h4 mb-0">{{ stat.value }}</p>
-              <p class="small text-body-secondary mb-0">{{ stat.label }}</p>
-            </div>
+            <dl class="card-body py-3 gr-stat-pair">
+              <dt>{{ stat.label }}</dt>
+              <dd class="fs-4">{{ stat.value }}</dd>
+            </dl>
           </div>
         </div>
       </div>

@@ -59,12 +59,21 @@ const unavailableLabel = computed(() => {
       </ol>
     </nav>
 
-    <p v-if="loading" class="text-body-secondary" role="status">Loading planting day…</p>
+    <!-- Every state has the page's <h1>, not only the loaded one, so a screen
+         reader user (or a crawler) arriving mid-load still finds the page's
+         main heading. -->
+    <template v-if="loading">
+      <h1 class="h3 mb-2">Planting day</h1>
+      <p class="text-body-secondary" role="status">Loading planting day…</p>
+    </template>
 
-    <div v-else-if="error" class="alert alert-danger" role="alert">{{ error }}</div>
+    <template v-else-if="error">
+      <h1 class="h3 mb-2">Planting day</h1>
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+    </template>
 
     <div v-else-if="!event" class="alert alert-secondary" role="alert">
-      <p class="fw-semibold mb-1">We couldn't find that planting day</p>
+      <h1 class="h5 fw-semibold mb-1">We couldn't find that planting day</h1>
       <p class="mb-0 small">
         It may have been removed.
         <RouterLink :to="{ name: 'events' }">Browse all planting days</RouterLink>.
@@ -111,7 +120,7 @@ const unavailableLabel = computed(() => {
           <div class="card-body">
             <h2 class="h6 mb-3">Your spot</h2>
 
-            <p class="mb-1" :class="canRegister ? 'h5' : 'text-body-secondary'">
+            <p class="mb-1" :class="canRegister ? 'fs-5 fw-medium lh-sm' : 'text-body-secondary'">
               <template v-if="event.isPast">{{ event.registered }} volunteers attended</template>
               <template v-else-if="event.status === 'cancelled'">This planting day has been cancelled</template>
               <template v-else-if="event.status === 'draft'">Dates still to be confirmed</template>

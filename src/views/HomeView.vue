@@ -83,7 +83,7 @@ const lowestCanopy = computed(() =>
           <p class="fw-semibold mb-1">Next planting day</p>
 
           <template v-if="nextEvent">
-            <p class="h5 mb-1">
+            <p class="fs-5 fw-medium lh-sm mb-1">
               {{ formatDateLong(nextEvent.date) }},
               {{ formatTimeRange(nextEvent.startTime, nextEvent.endTime) }}
             </p>
@@ -113,10 +113,10 @@ const lowestCanopy = computed(() =>
     <div class="row g-3">
       <div v-for="item in impact" :key="item.label" class="col-6 col-lg-3">
         <div class="card h-100 border-0 gr-stat">
-          <div class="card-body">
-            <p class="h3 mb-1 gr-stat__value">{{ item.value }}</p>
-            <p class="small text-body-secondary mb-0">{{ item.label }}</p>
-          </div>
+          <dl class="card-body gr-stat-pair">
+            <dt>{{ item.label }}</dt>
+            <dd class="fs-3 gr-stat__value">{{ item.value }}</dd>
+          </dl>
         </div>
       </div>
     </div>

@@ -256,3 +256,31 @@ body {
     border-top: 1px solid var(--bs-border-color);
   }
 }
+
+// A figure and what it counts, on the stat cards (home, manage, admin).
+// Marked up as <dl> — <dt> the label, <dd> the number — so a screen reader
+// reads "Upcoming: 19" instead of a bare "19". The number is drawn above its
+// label (flex `order`) but read after it, the order that makes sense aloud.
+// Sized with font utilities rather than Bootstrap's .h3/.h4, which would
+// dress a number up as a heading (WCAG 1.3.1, flagged by
+// AccessibilityChecker.org).
+.gr-stat-pair {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+
+  dt {
+    font-size: 0.875rem;
+    font-weight: 400;
+    color: var(--bs-secondary-color);
+  }
+
+  // Drawn first, so every card's number starts at the top whatever the
+  // length of its label.
+  dd {
+    order: -1;
+    margin: 0 0 0.25rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+}

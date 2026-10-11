@@ -282,7 +282,9 @@ defineExpose({ filteredRows: sorted })
       Export failed: {{ exportError }}
     </p>
 
-    <div class="table-responsive">
+    <!-- Scrolls sideways on a narrow screen, so it is focusable: keyboard
+         users can then scroll it with the arrow keys (WCAG 2.1.1). -->
+    <div class="table-responsive" tabindex="0" role="region" :aria-label="caption">
       <table class="table align-middle mb-2">
         <caption class="visually-hidden">{{ caption }}</caption>
         <thead>

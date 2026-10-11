@@ -6,7 +6,7 @@
   "description": "GreenRoots Melbourne — community tree-planting and biodiversity web app (FIT5032)",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node scripts/spa-fallback.mjs",
+    "build": "vite build && node scripts/spa-fallback.mjs && node scripts/sitemap.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

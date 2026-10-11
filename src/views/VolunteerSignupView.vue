@@ -228,7 +228,7 @@ function startAnother() {
               <h2 class="h6 text-uppercase text-body-secondary mb-3">
                 This planting day now
               </h2>
-              <p class="h5 mb-1">
+              <p class="fs-5 fw-medium lh-sm mb-1">
                 {{ confirmedEvent.registered }} of {{ confirmedEvent.capacity }}
                 places taken
               </p>

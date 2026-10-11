@@ -87,10 +87,10 @@ const ROLE_LABELS = {
           }
         ]" :key="stat.label" class="col-6 col-md-4 col-xl-2">
           <div class="card h-100">
-            <div class="card-body py-3">
-              <p class="h4 mb-0">{{ stat.value }}</p>
-              <p class="small text-body-secondary mb-0">{{ stat.label }}</p>
-            </div>
+            <dl class="card-body py-3 gr-stat-pair">
+              <dt>{{ stat.label }}</dt>
+              <dd class="fs-4">{{ stat.value }}</dd>
+            </dl>
           </div>
         </div>
       </div>
@@ -120,10 +120,10 @@ const ROLE_LABELS = {
       <div v-else class="row g-3">
         <div v-for="role in ['volunteer', 'coordinator', 'admin']" :key="role" class="col-6 col-md-4">
           <div class="card h-100">
-            <div class="card-body py-3">
-              <p class="h4 mb-0">{{ admin.byRole[role] ?? 0 }}</p>
-              <p class="small text-body-secondary mb-0">{{ ROLE_LABELS[role] }}</p>
-            </div>
+            <dl class="card-body py-3 gr-stat-pair">
+              <dt>{{ ROLE_LABELS[role] }}</dt>
+              <dd class="fs-4">{{ admin.byRole[role] ?? 0 }}</dd>
+            </dl>
           </div>
         </div>
       </div>
