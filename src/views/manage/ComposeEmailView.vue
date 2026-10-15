@@ -266,6 +266,7 @@ async function send() {
 
 <template>
   <div class="container gr-compose">
+    <RouterLink class="gr-back small d-inline-block mb-2" :to="{ name: 'manage' }">← Back to manage planting days</RouterLink>
     <p class="text-body-secondary small mb-1">{{ auth.isAdmin ? 'Administrator' : 'Coordinator' }}</p>
     <div class="d-flex flex-wrap align-items-baseline justify-content-between gap-2 mb-1">
       <h1 class="h3 mb-0">Email volunteers</h1>

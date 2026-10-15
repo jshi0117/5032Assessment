@@ -62,6 +62,7 @@ const columns = [
 
 <template>
   <div class="container gr-roster">
+    <RouterLink class="gr-back small d-inline-block mb-2" :to="{ name: 'manage' }">← Back to manage planting days</RouterLink>
     <p class="text-body-secondary small mb-1">Coordinator</p>
     <h1 class="h3 mb-1">Volunteer roster</h1>
     <p class="text-body-secondary mb-4">

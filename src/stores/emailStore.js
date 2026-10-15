@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
+import { useAuthStore } from '@/stores/authStore'
 
 import * as emailService from '@/services/emailService'
 
@@ -15,6 +16,7 @@ export const useEmailStore = defineStore('email', () => {
   const composing = ref(false)
 
   async function emailEventDetails(eventId) {
+    useAuthStore().assertVerified()
     sendingDetailsFor.value = eventId
     try {
       return await emailService.emailEventDetails(eventId)
@@ -30,6 +32,7 @@ export const useEmailStore = defineStore('email', () => {
    * only in what the user picked.
    */
   async function sendComposed({ to, subject, message, eventId, files = [], copyToSelf }) {
+    useAuthStore().assertVerified()
     composing.value = true
     try {
       const attachments = await Promise.all(

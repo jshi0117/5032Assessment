@@ -89,14 +89,19 @@ onBeforeUnmount(() => chart.value?.destroy())
         </button>
       </div>
 
-      <div v-show="!showTable" class="gr-chart__plot" :style="{ height: `${height}px` }">
+      <!-- Nothing to plot: say so rather than leave bare axes. -->
+      <p v-if="!table.rows.length" class="gr-chart__empty text-body-secondary small mb-2" role="status">
+        No data to show for this selection yet.
+      </p>
+
+      <div v-show="!showTable && table.rows.length" class="gr-chart__plot" :style="{ height: `${height}px` }">
         <canvas ref="canvas" role="img" :aria-label="summary">{{ summary }}</canvas>
       </div>
 
       <!-- Scrolls on its own when long, so it takes focus: keyboard users can
            then scroll it with the arrow keys. -->
       <div
-        v-show="showTable"
+        v-show="showTable && table.rows.length"
         :id="`${uid}-table`"
         class="table-responsive gr-chart__table"
         tabindex="0"
@@ -131,6 +136,13 @@ onBeforeUnmount(() => chart.value?.destroy())
 .gr-chart__plot {
   position: relative; // Chart.js sizes the canvas to this box
   width: 100%;
+}
+
+.gr-chart__empty {
+  border: 1px dashed var(--bs-border-color);
+  border-radius: 0.375rem;
+  padding: 2rem 1rem;
+  text-align: center;
 }
 
 .gr-chart__table {

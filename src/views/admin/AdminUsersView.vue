@@ -94,6 +94,7 @@ async function changeVolunteer(user, volunteerId) {
 
 <template>
   <div class="container gr-users">
+    <RouterLink class="gr-back small d-inline-block mb-2" :to="{ name: 'admin' }">← Back to overview</RouterLink>
     <p class="text-body-secondary small mb-1">Administrator</p>
     <h1 class="h3 mb-1">Accounts</h1>
     <p class="text-body-secondary mb-4">

@@ -81,8 +81,8 @@ onBeforeUnmount(() => {
     <div class="gr-verify__inner d-flex flex-wrap align-items-center gap-2">
       <p class="mb-0 me-auto small">
         <strong>Verify your email address.</strong>
-        We sent a link to {{ auth.account?.email }}. Until you follow it, you can't email
-        yourself planting day details or send email to volunteers.
+        We sent a link to {{ auth.account?.email }}. Until you follow it you can browse, but not
+        register, rate, send email or change anything.
       </p>
       <button
         type="button"

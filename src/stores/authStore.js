@@ -35,6 +35,16 @@ export const useAuthStore = defineStore('auth', () => {
    */
   const needsVerification = computed(() => Boolean(account.value && !account.value.emailVerified))
 
+  /**
+   * Refuses any action other than browsing until the address is verified.
+   * Called by every store action that writes, so each page gets the same rule.
+   */
+  function assertVerified() {
+    if (needsVerification.value) {
+      throw new Error('Verify your email address first. Until then you can browse, but not register, rate, send email or change anything.')
+    }
+  }
+
   /** Signed-out visitors have no role at all, which is not the same as a weak one. */
   const role = computed(() => (isAuthenticated.value ? (profile.value?.role ?? DEFAULT_ROLE) : null))
 
@@ -158,6 +168,7 @@ export const useAuthStore = defineStore('auth', () => {
     authService.changeOwnPassword(currentPassword, newPassword)
 
   async function updateProfileDetails(details) {
+    assertVerified()
     if (!account.value) throw new Error('You need to be signed in to do that.')
     const saved = await authService.updateOwnProfile(account.value.uid, details)
     profile.value = { ...profile.value, ...saved }
@@ -166,7 +177,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   return {
     account, profile, ready, error,
-    isAuthenticated, needsVerification, role, isAdmin, isCoordinator, volunteerId, displayName, initials,
+    isAuthenticated, needsVerification, assertVerified, role, isAdmin, isCoordinator, volunteerId, displayName, initials,
     ROLES,
     hasRole, init, whenReady,
     register, login, loginWithGoogle, logout, requestPasswordReset, changePassword, updateProfileDetails,

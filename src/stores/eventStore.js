@@ -1,5 +1,6 @@
 import { ref, reactive, computed } from 'vue'
 import { defineStore } from 'pinia'
+import { useAuthStore } from '@/stores/authStore'
 
 import * as eventService from '@/services/eventService'
 import * as ratingService from '@/services/ratingService'
@@ -85,6 +86,7 @@ export const useEventStore = defineStore('events', () => {
   }
 
   async function register(eventId, volunteerId, details = {}) {
+    useAuthStore().assertVerified()
     const updated = await eventService.registerForEvent(
       eventId, volunteerId, details, ratingStats.value
     )
@@ -93,6 +95,7 @@ export const useEventStore = defineStore('events', () => {
   }
 
   async function cancelRegistration(eventId, volunteerId) {
+    useAuthStore().assertVerified()
     replace(
       await eventService.cancelRegistration(eventId, volunteerId, ratingStats.value)
     )
@@ -117,6 +120,7 @@ export const useEventStore = defineStore('events', () => {
    * after a reload.
    */
   async function rate(eventId, uid, score) {
+    useAuthStore().assertVerified()
     const { stats } = await ratingService.submitRating(eventId, uid, score)
     ratingStats.value = { ...ratingStats.value, [eventId]: stats }
     myRatings.value = { ...myRatings.value, [eventId]: score }

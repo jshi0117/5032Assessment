@@ -1,5 +1,6 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { useAuthStore } from '@/stores/authStore'
 
 import * as userService from '@/services/userService'
 
@@ -40,11 +41,13 @@ export const useAdminStore = defineStore('admin', () => {
   }
 
   async function setRole(uid, role, actingUid) {
+    useAuthStore().assertVerified()
     await userService.updateUserRole(uid, role, actingUid)
     patch(uid, { role })
   }
 
   async function setVolunteerId(uid, volunteerId) {
+    useAuthStore().assertVerified()
     await userService.updateUserVolunteerId(uid, volunteerId)
     patch(uid, { volunteerId: volunteerId || null })
   }
